@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+  <title>Lexicon — a private dictionary</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="./manifest.json" />
+  <meta name="theme-color" content="#F4EEE3" />
+
+  <!-- iOS PWA -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Lexicon" />
+  <link rel="apple-touch-icon" href="./icon.svg" />
+  <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Crimson+Pro:ital,wght@0,300..800;1,300..800&family=Inter+Tight:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind via Play CDN (compiles in-browser, fine for personal apps) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    :root {
+      --paper: #F4EEE3;
+      --paper-2: #EBE3D2;
+      --ink: #1A1611;
+      --ink-soft: #4A413A;
+      --ink-mute: #877C6E;
+      --rule: #D5C9B4;
+      --accent: #7B2A1E;
+      --accent-soft: #9C4332;
+      --gold: #B5894A;
+      --leaf: #4A6B3A;
+    }
+    html, body { background: var(--paper); }
+    body {
+      margin: 0;
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Crimson Pro', Georgia, serif;
+      color: var(--ink);
+      overscroll-behavior-y: contain;
+    }
+    .font-display { font-family: 'Fraunces', Georgia, serif; font-optical-sizing: auto; }
+    .font-body    { font-family: 'Crimson Pro', Georgia, serif; }
+    .font-ui      { font-family: 'Inter Tight', system-ui, sans-serif; }
+    .smallcaps    { font-variant: small-caps; letter-spacing: 0.14em; text-transform: lowercase; }
+    .paper-bg {
+      background-color: var(--paper);
+      background-image:
+        radial-gradient(circle at 20% 10%, rgba(181,137,74,0.06) 0%, transparent 50%),
+        radial-gradient(circle at 80% 90%, rgba(123,42,30,0.05) 0%, transparent 50%);
+    }
+    .grain::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.08 0 0 0 0 0.06 0 0 0 0.35 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      opacity: 0.18; pointer-events: none; z-index: 1; mix-blend-mode: multiply;
+    }
+    .card-3d { perspective: 2000px; }
+    .card-inner { transition: transform 0.7s cubic-bezier(0.4,0,0.2,1); transform-style: preserve-3d; }
+    .card-flipped { transform: rotateY(180deg); }
+    .card-face { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+    .card-back { transform: rotateY(180deg); }
+    @keyframes fadeUp { from {opacity:0; transform: translateY(8px);} to {opacity:1; transform:none;} }
+    .anim-fade-up { animation: fadeUp 0.45s ease-out both; }
+    .btn-press:active { transform: translateY(1px); }
+    .ornament { color: var(--gold); }
+    .rule-line { background: linear-gradient(to right, transparent, var(--rule) 20%, var(--rule) 80%, transparent); height: 1px; }
+    /* prevent iOS zoom on form focus */
+    input, select, textarea { font-size: 16px; }
+    /* booting message */
+    .boot { display: flex; align-items: center; justify-content: center; min-height: 100vh; font-family: 'Fraunces', Georgia, serif; font-style: italic; font-size: 1.5rem; color: var(--ink-soft); }
+  </style>
+
+  <!-- Import map for ES modules -->
+  <script type="importmap">
+  {
+    "imports": {
+      "react":             "https://esm.sh/react@18.3.1",
+      "react-dom/client":  "https://esm.sh/react-dom@18.3.1/client",
+      "lucide-react":      "https://esm.sh/lucide-react@0.383.0?deps=react@18.3.1"
+    }
+  }
+  </script>
+
+  <!-- Babel standalone — transpiles JSX in the browser. Adds ~700KB but caches forever. -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="paper-bg grain">
+  <div id="root"><div class="boot">opening the dictionary…</div></div>
+
+  <script type="text/babel" data-type="module" data-presets="react">
+    import { useState, useEffect, useMemo } from 'react';
+    import { createRoot } from 'react-dom/client';
+    import {
+      Layers3, MessageSquareQuote, BookMarked, Plus, X, Volume2,
+      RotateCcw, Sparkles, Check, ChevronRight, Trash2, Pencil
+    } from 'lucide-react';
+
+    /* ===== SEED VOCABULARY ===== */
+    const SEED = [
+      { word: 'Ephemeral', pos: 'adj.', pron: 'ih-FEM-er-uhl', def: 'Lasting for a very short time; fleeting.', ex: 'The ephemeral beauty of cherry blossoms draws crowds for just two weeks each spring.' },
+      { word: 'Ubiquitous', pos: 'adj.', pron: 'yoo-BIK-wi-tus', def: 'Present, appearing, or found everywhere.', ex: 'Coffee shops have become so ubiquitous that you find one on nearly every corner.' },
+      { word: 'Quintessential', pos: 'adj.', pron: 'kwin-tuh-SEN-shul', def: 'Representing the most perfect or typical example of a quality or class.', ex: 'A wool peacoat is the quintessential winter garment for coastal cities.' },
+      { word: 'Pernicious', pos: 'adj.', pron: 'per-NISH-us', def: 'Having a harmful effect, especially in a gradual or subtle way.', ex: 'The pernicious habit of doomscrolling slowly eroded her sense of optimism.' },
+      { word: 'Sagacious', pos: 'adj.', pron: 'suh-GAY-shus', def: 'Having keen mental discernment and good judgment; wise.', ex: 'Her sagacious advice steered the young company through three recessions.' },
+      { word: 'Mellifluous', pos: 'adj.', pron: 'muh-LIF-loo-us', def: 'Sweet or musical; pleasant to hear.', ex: "The narrator's mellifluous voice could make a tax form sound like poetry." },
+      { word: 'Obsequious', pos: 'adj.', pron: 'ob-SEE-kwee-us', def: 'Obedient or attentive to an excessive or servile degree.', ex: 'The obsequious waiter hovered at the table, refilling glasses that were nearly full.' },
+      { word: 'Recalcitrant', pos: 'adj.', pron: 'ri-KAL-si-trunt', def: 'Having an obstinately uncooperative attitude toward authority.', ex: 'The recalcitrant printer refused every command, no matter how politely worded.' },
+      { word: 'Ineffable', pos: 'adj.', pron: 'in-EF-uh-bul', def: 'Too great or extreme to be expressed in words.', ex: "Standing at the canyon's edge, she felt an ineffable sense of her own smallness." },
+      { word: 'Surreptitious', pos: 'adj.', pron: 'sur-up-TISH-us', def: 'Kept secret, especially because it would not be approved of.', ex: 'He stole a surreptitious glance at his watch during the seemingly endless toast.' },
+      { word: 'Cogent', pos: 'adj.', pron: 'KOH-jent', def: 'Clear, logical, and convincing.', ex: 'She made a cogent argument that even the skeptics on the board found hard to dismiss.' },
+      { word: 'Taciturn', pos: 'adj.', pron: 'TAS-i-turn', def: 'Reserved or uncommunicative in speech; saying little.', ex: 'Her taciturn grandfather spoke perhaps a hundred words across the entire dinner.' },
+      { word: 'Magnanimous', pos: 'adj.', pron: 'mag-NAN-i-mus', def: 'Generous or forgiving, especially toward a rival or less powerful person.', ex: "In a magnanimous gesture, the champion praised her opponent's skill at length." },
+      { word: 'Erudite', pos: 'adj.', pron: 'AIR-yoo-dyt', def: 'Having or showing great knowledge or learning.', ex: 'His erudite footnotes nearly outnumbered the actual lines of the poem.' },
+      { word: 'Quotidian', pos: 'adj.', pron: 'kwoh-TID-ee-un', def: 'Of or occurring every day; mundane and ordinary.', ex: 'She found unexpected joy in the quotidian rituals of making coffee and feeding the cat.' },
+      { word: 'Equivocate', pos: 'verb', pron: 'ih-KWIV-uh-kayt', def: 'Use ambiguous language to conceal the truth or avoid commitment.', ex: 'Asked whether he had read the report, the senator equivocated for nearly a full minute.' },
+      { word: 'Propensity', pos: 'noun', pron: 'pruh-PEN-si-tee', def: 'An inclination or natural tendency to behave in a particular way.', ex: "He had a propensity for ending every story with a quotation he'd half-remembered." },
+      { word: 'Esoteric', pos: 'adj.', pron: 'es-uh-TAIR-ik', def: 'Intended for or likely to be understood by only a small number of people.', ex: 'The conversation drifted into the esoteric mathematics of knot theory.' },
+      { word: 'Laconic', pos: 'adj.', pron: 'luh-KON-ik', def: 'Using very few words; concise to the point of seeming rude.', ex: 'Her laconic reply — "Fine." — somehow contained an entire argument.' },
+      { word: 'Sycophant', pos: 'noun', pron: 'SIK-uh-funt', def: 'A person who acts obsequiously toward someone important to gain advantage.', ex: 'The CEO eventually grew tired of the sycophants who agreed with her every idea.' },
+      { word: 'Truculent', pos: 'adj.', pron: 'TRUK-yoo-lunt', def: 'Eager or quick to argue or fight; aggressively defiant.', ex: 'A truculent silence settled over the negotiation table.' },
+      { word: 'Vicissitude', pos: 'noun', pron: 'vi-SIS-i-tood', def: 'A change of circumstances or fortune, typically one that is unwelcome.', ex: 'The novel traces the vicissitudes of a family across four generations.' },
+      { word: 'Fastidious', pos: 'adj.', pron: 'fas-TID-ee-us', def: 'Very attentive to and concerned about accuracy and detail.', ex: 'He was fastidious about his bookshelves — organized by subject, then by spine color.' },
+      { word: 'Ameliorate', pos: 'verb', pron: 'uh-MEEL-yuh-rayt', def: 'Make something bad or unsatisfactory better.', ex: 'The new policy did little to ameliorate the underlying tensions on the team.' },
+      { word: 'Ostensible', pos: 'adj.', pron: 'oh-STEN-si-bul', def: 'Stated or appearing to be true, but not necessarily so.', ex: 'The ostensible reason for the meeting was scheduling, but everyone knew it was about the budget.' },
+      { word: 'By and large', pos: 'phrase', pron: '', def: 'On the whole; generally speaking.', ex: 'By and large, the reviews were positive, though a few critics took issue with the ending.' },
+      { word: 'In a nutshell', pos: 'phrase', pron: '', def: 'In the fewest possible words; in summary.', ex: 'In a nutshell, the project will save six months and roughly half the budget.' },
+      { word: 'Beg the question', pos: 'phrase', pron: '', def: "To assume the truth of an argument's conclusion in its premise; loosely, to invite an obvious follow-up.", ex: 'Their proposal begs the question of who will ultimately pay for the upkeep.' },
+      { word: 'Cut to the chase', pos: 'phrase', pron: '', def: 'Get to the point without wasting time.', ex: 'I appreciate the context, but can we cut to the chase and decide?' },
+      { word: 'On the same page', pos: 'phrase', pron: '', def: 'In agreement or sharing the same understanding.', ex: "Before we present to the client, let's make sure we're on the same page about pricing." },
+    ];
+
+    /* ===== SRS ENGINE (simplified SM-2) ===== */
+    const DAY_MS = 86_400_000;
+
+    function buildCard(seed, idx) {
+      return {
+        id: `c_${idx}_${Math.random().toString(36).slice(2, 8)}`,
+        ...seed,
+        ef: 2.5, interval: 0, reps: 0,
+        nextReview: Date.now(), lastReview: null, history: [],
+      };
+    }
+
+    function reviewCard(card, q) {
+      let { ef, interval, reps } = card;
+      if (q < 3) { reps = 0; interval = 1; }
+      else {
+        if (reps === 0) interval = 1;
+        else if (reps === 1) interval = 6;
+        else interval = Math.max(1, Math.round(interval * ef));
+        reps += 1;
+      }
+      ef = Math.max(1.3, ef + 0.1 - (5 - q) * (0.08 + (5 - q) * 0.02));
+      const now = Date.now();
+      return {
+        ...card, ef: +ef.toFixed(2), interval, reps,
+        lastReview: now, nextReview: now + interval * DAY_MS,
+        history: [...(card.history || []), { d: now, q }].slice(-30),
+      };
+    }
+
+    const dueNow = (cards) =>
+      cards.filter(c => c.nextReview <= Date.now())
+           .sort((a, b) => a.nextReview - b.nextReview);
+
+    /* ===== STORAGE (localStorage — synchronous) ===== */
+    const STORE_KEY = 'lexicon:cards:v1';
+    function loadStore() {
+      try {
+        const raw = localStorage.getItem(STORE_KEY);
+        if (raw) return JSON.parse(raw);
+      } catch (_) {}
+      return null;
+    }
+    function saveStore(cards) {
+      try { localStorage.setItem(STORE_KEY, JSON.stringify(cards)); }
+      catch (e) { console.error('save failed', e); }
+    }
+
+    /* ===== UTIL ===== */
+    const speak = (text) => {
+      if (!text || !window.speechSynthesis) return;
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.rate = 0.9;
+      window.speechSynthesis.speak(u);
+    };
+    const fmtDue = (ts) => {
+      const diff = ts - Date.now();
+      if (diff <= 0) return 'due now';
+      const days = Math.round(diff / DAY_MS);
+      if (days < 1) return 'today';
+      if (days === 1) return 'tomorrow';
+      return `in ${days}d`;
+    };
+    const shuffle = (arr) => {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    };
+
+    /* ===== APP ===== */
+    function App() {
+      const [cards, setCards] = useState(() => {
+        const stored = loadStore();
+        return (stored && Array.isArray(stored) && stored.length) ? stored : SEED.map(buildCard);
+      });
+      const [mode, setMode] = useState('flashcards');
+      const [showAdd, setShowAdd] = useState(false);
+
+      useEffect(() => { saveStore(cards); }, [cards]);
+
+      const due = useMemo(() => dueNow(cards), [cards]);
+
+      const updateCard = (id, q) => setCards(cs => cs.map(c => c.id === id ? reviewCard(c, q) : c));
+      const addCard    = (data)  => setCards(cs => [...cs, buildCard(data, cs.length)]);
+      const editCard   = (id, d) => setCards(cs => cs.map(c => c.id === id ? { ...c, ...d } : c));
+      const deleteCard = (id)    => setCards(cs => cs.filter(c => c.id !== id));
+      const resetProgress = () => setCards(cs => cs.map(c => ({
+        ...c, ef: 2.5, interval: 0, reps: 0, nextReview: Date.now(), lastReview: null, history: []
+      })));
+
+      return (
+        <div className="min-h-screen relative" style={{ color: 'var(--ink)' }}>
+          <div className="relative z-10 max-w-3xl mx-auto px-5 sm:px-8 pt-8 pb-24">
+            <Header totalCount={cards.length} dueCount={due.length} onAdd={() => setShowAdd(true)} />
+            <ModeNav mode={mode} setMode={setMode} dueCount={due.length} />
+            <main className="mt-8">
+              {mode === 'flashcards' && <Flashcards due={due} totalCards={cards.length} onReview={updateCard} />}
+              {mode === 'quiz'       && <Quiz cards={cards} />}
+              {mode === 'context'    && <ContextMode cards={cards} />}
+              {mode === 'library'    && <LibraryView cards={cards} onEdit={editCard} onDelete={deleteCard} onReset={resetProgress} onAdd={() => setShowAdd(true)} />}
+            </main>
+          </div>
+          {showAdd && <AddWordModal onClose={() => setShowAdd(false)} onAdd={addCard} />}
+        </div>
+      );
+    }
+
+    /* ===== HEADER ===== */
+    function Header({ totalCount, dueCount, onAdd }) {
+      return (
+        <header className="anim-fade-up">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <div className="font-ui smallcaps text-xs" style={{ color: 'var(--ink-mute)' }}>a private dictionary</div>
+              <h1 className="font-display italic font-light leading-none mt-1" style={{ fontSize: 'clamp(2.5rem, 6vw, 3.75rem)' }}>Lexicon</h1>
+              <div className="font-body italic text-base mt-2" style={{ color: 'var(--ink-soft)' }}>
+                {totalCount} words gathered · <span style={{ color: dueCount > 0 ? 'var(--accent)' : 'var(--leaf)' }}>
+                  {dueCount > 0 ? `${dueCount} due` : 'all caught up'}
+                </span>
+              </div>
+            </div>
+            <button onClick={onAdd} className="btn-press font-ui smallcaps text-xs px-4 py-3 border flex items-center gap-2" style={{ borderColor: 'var(--ink)', color: 'var(--ink)' }}>
+              <Plus size={14} /> add
+            </button>
+          </div>
+          <div className="rule-line mt-6" />
+          <div className="flex justify-center mt-3 mb-1"><span className="ornament font-display text-xl">❦</span></div>
+        </header>
+      );
+    }
+
+    /* ===== NAV ===== */
+    function ModeNav({ mode, setMode, dueCount }) {
+      const items = [
+        { key: 'flashcards', label: 'Cards',   icon: Layers3,            badge: dueCount },
+        { key: 'quiz',       label: 'Quiz',    icon: Sparkles },
+        { key: 'context',    label: 'Context', icon: MessageSquareQuote },
+        { key: 'library',    label: 'Library', icon: BookMarked },
+      ];
+      return (
+        <nav className="mt-6 grid grid-cols-4 gap-1 sm:gap-2">
+          {items.map(({ key, label, icon: Icon, badge }) => {
+            const active = mode === key;
+            return (
+              <button key={key} onClick={() => setMode(key)} className="btn-press relative py-3 px-2 transition-colors"
+                style={{ borderBottom: `2px solid ${active ? 'var(--accent)' : 'transparent'}`, color: active ? 'var(--accent)' : 'var(--ink-soft)' }}>
+                <div className="flex flex-col items-center gap-1.5">
+                  <Icon size={20} strokeWidth={active ? 2 : 1.5} />
+                  <span className="font-ui smallcaps text-[11px]">{label}</span>
+                </div>
+                {badge > 0 && key === 'flashcards' && !active && (
+                  <span className="absolute top-2 right-2 text-[10px] font-ui rounded-full w-5 h-5 flex items-center justify-center"
+                    style={{ background: 'var(--accent)', color: 'var(--paper)' }}>{badge}</span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
+      );
+    }
+
+    /* ===== FLASHCARDS ===== */
+    function Flashcards({ due, totalCards, onReview }) {
+      const [flipped, setFlipped] = useState(false);
+      const [idx, setIdx] = useState(0);
+      const card = due[idx];
+      useEffect(() => { setFlipped(false); }, [idx, due.length]);
+
+      if (!card) {
+        return (
+          <div className="anim-fade-up text-center py-16">
+            <div className="ornament font-display text-5xl mb-4">❦</div>
+            <h2 className="font-display italic text-3xl mb-3">All caught up.</h2>
+            <p className="font-body text-lg max-w-md mx-auto" style={{ color: 'var(--ink-soft)' }}>
+              {totalCards === 0 ? 'Add a word to begin building your private dictionary.'
+                : 'Your scheduled words have been reviewed. Return tomorrow, or browse the library to revisit favorites.'}
+            </p>
+          </div>
+        );
+      }
+
+      const handle = (q) => { onReview(card.id, q); setIdx(i => i + 1); };
+
+      return (
+        <div className="anim-fade-up">
+          <div className="font-ui smallcaps text-xs text-center mb-4" style={{ color: 'var(--ink-mute)' }}>
+            card {idx + 1} of {due.length}
+          </div>
+          <div className="card-3d">
+            <div className={`card-inner relative w-full ${flipped ? 'card-flipped' : ''}`} style={{ minHeight: 360 }}>
+              {/* FRONT */}
+              <div className="card-face absolute inset-0 flex flex-col items-center justify-center cursor-pointer p-8 select-none"
+                style={{ background: 'var(--paper-2)', border: '1px solid var(--rule)', boxShadow: '0 1px 0 rgba(255,255,255,0.5) inset, 0 12px 28px -16px rgba(26,22,17,0.3)' }}
+                onClick={() => setFlipped(true)}>
+                <div className="font-ui smallcaps text-[11px]" style={{ color: 'var(--ink-mute)' }}>{card.pos}</div>
+                <h2 className="font-display font-light text-center my-4" style={{ fontSize: 'clamp(2.25rem, 8vw, 4rem)', lineHeight: 1.05 }}>{card.word}</h2>
+                {card.pron && <div className="font-body italic text-base" style={{ color: 'var(--ink-soft)' }}>/{card.pron}/</div>}
+                <button onClick={(e) => { e.stopPropagation(); speak(card.word); }} className="mt-5 p-2 rounded-full" style={{ color: 'var(--ink-soft)' }} aria-label="Pronounce">
+                  <Volume2 size={20} />
+                </button>
+                <div className="absolute bottom-5 font-ui smallcaps text-[10px]" style={{ color: 'var(--ink-mute)' }}>tap to reveal</div>
+              </div>
+              {/* BACK */}
+              <div className="card-face card-back absolute inset-0 flex flex-col p-8 cursor-pointer select-none"
+                style={{ background: 'var(--paper-2)', border: '1px solid var(--rule)', boxShadow: '0 1px 0 rgba(255,255,255,0.5) inset, 0 12px 28px -16px rgba(26,22,17,0.3)' }}
+                onClick={() => setFlipped(false)}>
+                <div className="flex items-baseline gap-3 flex-wrap">
+                  <h3 className="font-display italic text-3xl">{card.word}</h3>
+                  <span className="font-ui smallcaps text-[11px]" style={{ color: 'var(--ink-mute)' }}>{card.pos}</span>
+                </div>
+                <div className="rule-line my-4" />
+                <p className="font-body text-lg leading-relaxed">{card.def}</p>
+                <p className="font-body italic mt-5 text-base leading-relaxed" style={{ color: 'var(--ink-soft)' }}>
+                  <span className="ornament mr-2">“</span>{card.ex}<span className="ornament ml-1">”</span>
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="mt-6">
+            {flipped ? (
+              <div className="grid grid-cols-4 gap-2 anim-fade-up">
+                <RatingBtn label="Again" sub="< 1 day"  onClick={() => handle(1)} tone="accent" />
+                <RatingBtn label="Hard"  sub="soon"     onClick={() => handle(3)} tone="ink-soft" />
+                <RatingBtn label="Good"  sub="standard" onClick={() => handle(4)} tone="ink" />
+                <RatingBtn label="Easy"  sub="far"      onClick={() => handle(5)} tone="leaf" />
+              </div>
+            ) : (
+              <button onClick={() => setFlipped(true)} className="btn-press w-full py-4 font-ui smallcaps text-sm"
+                style={{ background: 'var(--ink)', color: 'var(--paper)' }}>reveal definition</button>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    function RatingBtn({ label, sub, onClick, tone }) {
+      const colors = { 'accent': 'var(--accent)', 'ink-soft': 'var(--ink-soft)', 'ink': 'var(--ink)', 'leaf': 'var(--leaf)' };
+      return (
+        <button onClick={onClick} className="btn-press py-3 px-2 flex flex-col items-center gap-0.5 border" style={{ borderColor: colors[tone], color: colors[tone] }}>
+          <span className="font-display text-base">{label}</span>
+          <span className="font-ui text-[10px] smallcaps" style={{ color: 'var(--ink-mute)' }}>{sub}</span>
+        </button>
+      );
+    }
+
+    /* ===== QUIZ ===== */
+    function Quiz({ cards }) {
+      const [round, setRound] = useState(null);
+      const [picked, setPicked] = useState(null);
+      const [score, setScore] = useState({ right: 0, total: 0 });
+
+      const newRound = () => {
+        if (cards.length < 4) { setRound(null); return; }
+        const correct = cards[Math.floor(Math.random() * cards.length)];
+        const distractors = shuffle(cards.filter(c => c.id !== correct.id)).slice(0, 3);
+        setRound({ correct, options: shuffle([correct, ...distractors]) });
+        setPicked(null);
+      };
+      useEffect(() => { newRound(); }, [cards.length]);
+
+      if (cards.length < 4) {
+        return <div className="anim-fade-up text-center py-16"><p className="font-body text-lg" style={{ color: 'var(--ink-soft)' }}>Add at least 4 words to enable the quiz.</p></div>;
+      }
+      if (!round) return null;
+
+      const handlePick = (opt) => {
+        if (picked) return;
+        setPicked(opt);
+        setScore(s => ({ right: s.right + (opt.id === round.correct.id ? 1 : 0), total: s.total + 1 }));
+      };
+
+      return (
+        <div className="anim-fade-up">
+          <div className="flex justify-between items-baseline mb-5">
+            <span className="font-ui smallcaps text-xs" style={{ color: 'var(--ink-mute)' }}>score {score.right}/{score.total}</span>
+            <button onClick={() => setScore({ right: 0, total: 0 })} className="font-ui smallcaps text-xs flex items-center gap-1" style={{ color: 'var(--ink-mute)' }}>
+              <RotateCcw size={12} /> reset
+            </button>
+          </div>
+          <div className="p-6 mb-5" style={{ background: 'var(--paper-2)', border: '1px solid var(--rule)' }}>
+            <div className="font-ui smallcaps text-[11px] mb-3" style={{ color: 'var(--ink-mute)' }}>which word means</div>
+            <p className="font-body text-xl leading-relaxed">{round.correct.def}</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {round.options.map((opt) => {
+              const isCorrect = opt.id === round.correct.id;
+              const isPicked = picked && picked.id === opt.id;
+              let style = { borderColor: 'var(--rule)', background: 'transparent', color: 'var(--ink)' };
+              if (picked) {
+                if (isCorrect) style = { borderColor: 'var(--leaf)', background: 'rgba(74,107,58,0.08)', color: 'var(--leaf)' };
+                else if (isPicked) style = { borderColor: 'var(--accent)', background: 'rgba(123,42,30,0.06)', color: 'var(--accent)' };
+                else style = { borderColor: 'var(--rule)', background: 'transparent', color: 'var(--ink-mute)' };
+              }
+              return (
+                <button key={opt.id} onClick={() => handlePick(opt)} disabled={!!picked}
+                  className="btn-press py-4 px-4 border text-left flex items-center justify-between" style={style}>
+                  <span className="font-display italic text-xl">{opt.word}</span>
+                  {picked && isCorrect && <Check size={18} />}
+                  {picked && isPicked && !isCorrect && <X size={18} />}
+                </button>
+              );
+            })}
+          </div>
+          {picked && (
+            <div className="mt-5 anim-fade-up">
+              <p className="font-body italic text-base mb-4" style={{ color: 'var(--ink-soft)' }}>
+                <span className="ornament mr-1">“</span>{round.correct.ex}<span className="ornament ml-1">”</span>
+              </p>
+              <button onClick={newRound} className="btn-press w-full py-4 font-ui smallcaps text-sm flex items-center justify-center gap-2"
+                style={{ background: 'var(--ink)', color: 'var(--paper)' }}>next <ChevronRight size={16} /></button>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    /* ===== CONTEXT ===== */
+    function ContextMode({ cards }) {
+      const [idx, setIdx] = useState(0);
+      const [revealed, setRevealed] = useState(false);
+      const ordered = useMemo(() => shuffle(cards), [cards.length]);
+      const card = ordered[idx % ordered.length];
+      useEffect(() => { setRevealed(false); }, [idx]);
+      if (!card) return null;
+
+      const renderExample = () => {
+        const w = card.word;
+        const re = new RegExp(`(${w.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')})`, 'i');
+        const parts = card.ex.split(re);
+        return parts.map((p, i) =>
+          p.toLowerCase() === w.toLowerCase()
+            ? <span key={i} style={{ color: 'var(--accent)', borderBottom: '1px dashed var(--accent)', cursor: 'pointer' }} onClick={() => setRevealed(true)}>{p}</span>
+            : <span key={i}>{p}</span>
+        );
+      };
+
+      return (
+        <div className="anim-fade-up">
+          <div className="font-ui smallcaps text-xs text-center mb-6" style={{ color: 'var(--ink-mute)' }}>
+            in context · {idx + 1} of {ordered.length}
+          </div>
+          <div className="p-8 mb-6" style={{ background: 'var(--paper-2)', border: '1px solid var(--rule)', minHeight: 220 }}>
+            <p className="font-display italic font-light leading-snug" style={{ fontSize: 'clamp(1.5rem, 3.5vw, 2rem)' }}>
+              {renderExample()}
+            </p>
+          </div>
+          {!revealed ? (
+            <button onClick={() => setRevealed(true)} className="btn-press w-full py-4 font-ui smallcaps text-sm"
+              style={{ background: 'var(--ink)', color: 'var(--paper)' }}>reveal meaning</button>
+          ) : (
+            <div className="anim-fade-up">
+              <div className="p-5 mb-4" style={{ borderLeft: '3px solid var(--accent)' }}>
+                <div className="flex items-baseline gap-3 mb-1">
+                  <h3 className="font-display italic text-2xl">{card.word}</h3>
+                  <span className="font-ui smallcaps text-[11px]" style={{ color: 'var(--ink-mute)' }}>{card.pos}</span>
+                  {card.pron && <span className="font-body italic text-sm" style={{ color: 'var(--ink-soft)' }}>/{card.pron}/</span>}
+                </div>
+                <p className="font-body text-lg leading-relaxed">{card.def}</p>
+              </div>
+              <button onClick={() => setIdx(i => i + 1)} className="btn-press w-full py-4 font-ui smallcaps text-sm flex items-center justify-center gap-2"
+                style={{ background: 'var(--ink)', color: 'var(--paper)' }}>next sentence <ChevronRight size={16} /></button>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    /* ===== LIBRARY ===== */
+    function LibraryView({ cards, onEdit, onDelete, onReset, onAdd }) {
+      const [editing, setEditing] = useState(null);
+      const sorted = [...cards].sort((a, b) => a.word.localeCompare(b.word));
+      return (
+        <div className="anim-fade-up">
+          <div className="flex items-baseline justify-between mb-4">
+            <h2 className="font-display italic text-2xl">Your dictionary</h2>
+            <div className="flex gap-3">
+              <button onClick={onAdd} className="font-ui smallcaps text-xs flex items-center gap-1" style={{ color: 'var(--accent)' }}><Plus size={12} /> add</button>
+              <button onClick={() => { if (confirm('Reset all review progress? Words remain.')) onReset(); }} className="font-ui smallcaps text-xs flex items-center gap-1" style={{ color: 'var(--ink-mute)' }}>
+                <RotateCcw size={12} /> reset
+              </button>
+            </div>
+          </div>
+          <div className="rule-line mb-1" />
+          <ul>
+            {sorted.map((c) => (
+              <li key={c.id} className="border-b py-3 flex items-baseline justify-between gap-3" style={{ borderColor: 'var(--rule)' }}>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-baseline gap-2 flex-wrap">
+                    <span className="font-display italic text-xl">{c.word}</span>
+                    <span className="font-ui smallcaps text-[10px]" style={{ color: 'var(--ink-mute)' }}>{c.pos}</span>
+                  </div>
+                  <p className="font-body text-sm mt-0.5 truncate" style={{ color: 'var(--ink-soft)' }}>{c.def}</p>
+                  <span className="font-ui text-[10px] smallcaps mt-1 inline-block" style={{ color: c.nextReview <= Date.now() ? 'var(--accent)' : 'var(--ink-mute)' }}>
+                    {fmtDue(c.nextReview)} · seen {c.reps}×
+                  </span>
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <button onClick={() => setEditing(c)} className="p-2" style={{ color: 'var(--ink-soft)' }} aria-label="Edit"><Pencil size={14} /></button>
+                  <button onClick={() => { if (confirm(`Delete "${c.word}"?`)) onDelete(c.id); }} className="p-2" style={{ color: 'var(--ink-mute)' }} aria-label="Delete"><Trash2 size={14} /></button>
+                </div>
+              </li>
+            ))}
+          </ul>
+          {editing && <AddWordModal initial={editing} onClose={() => setEditing(null)} onAdd={(d) => { onEdit(editing.id, d); setEditing(null); }} />}
+        </div>
+      );
+    }
+
+    /* ===== ADD / EDIT MODAL ===== */
+    function AddWordModal({ onClose, onAdd, initial }) {
+      const [form, setForm] = useState({
+        word: initial?.word || '', pos: initial?.pos || 'noun', pron: initial?.pron || '',
+        def: initial?.def || '', ex: initial?.ex || '',
+      });
+      const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+      const submit = (e) => {
+        e.preventDefault();
+        if (!form.word.trim() || !form.def.trim()) return;
+        onAdd({ word: form.word.trim(), pos: form.pos.trim() || 'noun', pron: form.pron.trim(), def: form.def.trim(), ex: form.ex.trim() });
+        onClose();
+      };
+      return (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" style={{ background: 'rgba(26,22,17,0.5)' }} onClick={onClose}>
+          <div className="w-full sm:max-w-lg m-0 sm:m-6 p-6 sm:p-8 anim-fade-up"
+            style={{ background: 'var(--paper)', border: '1px solid var(--rule)' }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-baseline justify-between mb-4">
+              <h3 className="font-display italic text-2xl">{initial ? 'Edit entry' : 'New entry'}</h3>
+              <button onClick={onClose} aria-label="Close" style={{ color: 'var(--ink-soft)' }}><X size={20} /></button>
+            </div>
+            <div className="space-y-3">
+              <Field label="Word or phrase">
+                <input className="w-full bg-transparent py-2 font-display italic text-xl border-b focus:outline-none" style={{ borderColor: 'var(--ink)', color: 'var(--ink)' }}
+                  value={form.word} onChange={(e) => set('word', e.target.value)} autoFocus />
+              </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Part of speech">
+                  <select className="w-full bg-transparent py-2 font-body border-b focus:outline-none" style={{ borderColor: 'var(--rule)', color: 'var(--ink)' }}
+                    value={form.pos} onChange={(e) => set('pos', e.target.value)}>
+                    {['noun', 'verb', 'adj.', 'adv.', 'phrase', 'idiom'].map((p) => <option key={p}>{p}</option>)}
+                  </select>
+                </Field>
+                <Field label="Pronunciation (opt.)">
+                  <input className="w-full bg-transparent py-2 font-body italic border-b focus:outline-none" style={{ borderColor: 'var(--rule)', color: 'var(--ink)' }}
+                    value={form.pron} onChange={(e) => set('pron', e.target.value)} placeholder="ih-FEM-er-uhl" />
+                </Field>
+              </div>
+              <Field label="Definition">
+                <textarea rows={2} className="w-full bg-transparent py-2 font-body text-base border-b focus:outline-none resize-none" style={{ borderColor: 'var(--rule)', color: 'var(--ink)' }}
+                  value={form.def} onChange={(e) => set('def', e.target.value)} />
+              </Field>
+              <Field label="Example sentence">
+                <textarea rows={2} className="w-full bg-transparent py-2 font-body italic text-base border-b focus:outline-none resize-none" style={{ borderColor: 'var(--rule)', color: 'var(--ink-soft)' }}
+                  value={form.ex} onChange={(e) => set('ex', e.target.value)} />
+              </Field>
+            </div>
+            <button onClick={submit} className="btn-press mt-6 w-full py-4 font-ui smallcaps text-sm"
+              style={{ background: 'var(--ink)', color: 'var(--paper)' }}>{initial ? 'save changes' : 'add to dictionary'}</button>
+          </div>
+        </div>
+      );
+    }
+
+    function Field({ label, children }) {
+      return (
+        <label className="block">
+          <div className="font-ui smallcaps text-[11px] mb-1" style={{ color: 'var(--ink-mute)' }}>{label}</div>
+          {children}
+        </label>
+      );
+    }
+
+    createRoot(document.getElementById('root')).render(<App />);
+  </script>
+
+  <!-- Service worker for offline use after first load -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>

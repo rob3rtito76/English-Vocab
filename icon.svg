@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="paper" cx="50%" cy="40%" r="70%">
+      <stop offset="0%" stop-color="#F4EEE3"/>
+      <stop offset="100%" stop-color="#E5DAC3"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#paper)"/>
+  <rect x="40" y="40" width="432" height="432" rx="64" fill="none" stroke="#7B2A1E" stroke-width="3" opacity="0.5"/>
+  <text x="256" y="320" text-anchor="middle"
+        font-family="Georgia, 'Times New Roman', serif"
+        font-style="italic" font-weight="300"
+        font-size="320" fill="#1A1611">L</text>
+  <text x="256" y="400" text-anchor="middle"
+        font-family="Georgia, serif" font-size="42" fill="#B5894A">❦</text>
+</svg>
