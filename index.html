@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Lexicon — a private dictionary</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="./manifest.json" />
+  <meta name="theme-color" content="#F4EEE3" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Lexicon" />
+  <link rel="apple-touch-icon" href="./icon.svg" />
+  <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Crimson+Pro:ital,wght@0,300..800;1,300..800&family=Inter+Tight:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --paper: #F4EEE3;
+      --paper-2: #EBE3D2;
+      --ink: #1A1611;
+      --ink-soft: #4A413A;
+      --ink-mute: #877C6E;
+      --rule: #D5C9B4;
+      --accent: #7B2A1E;
+      --gold: #B5894A;
+      --leaf: #4A6B3A;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { background: var(--paper); margin: 0; padding: 0; }
+    body {
+      -webkit-font-smoothing: antialiased;
+      font-family: 'Crimson Pro', Georgia, serif;
+      color: var(--ink);
+      overscroll-behavior-y: contain;
+      min-height: 100vh;
+    }
+    .font-display { font-family: 'Fraunces', Georgia, serif; font-optical-sizing: auto; }
+    .font-body    { font-family: 'Crimson Pro', Georgia, serif; }
+    .font-ui      { font-family: 'Inter Tight', -apple-system, system-ui, sans-serif; }
+    .smallcaps    { font-variant: small-caps; letter-spacing: 0.14em; text-transform: lowercase; }
+    .italic { font-style: italic; }
+    .light  { font-weight: 300; }
+
+    .paper-bg {
+      background-color: var(--paper);
+      background-image:
+        radial-gradient(circle at 20% 10%, rgba(181,137,74,0.06) 0%, transparent 50%),
+        radial-gradient(circle at 80% 90%, rgba(123,42,30,0.05) 0%, transparent 50%);
+    }
+    .grain::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.08 0 0 0 0 0.06 0 0 0 0.35 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      opacity: 0.18; pointer-events: none; z-index: 1; mix-blend-mode: multiply;
+    }
+    .card-3d { perspective: 2000px; }
+    .card-inner { transition: transform 0.7s cubic-bezier(0.4,0,0.2,1); transform-style: preserve-3d; position: relative; }
+    .card-flipped { transform: rotateY(180deg); }
+    .card-face { backface-visibility: hidden; -webkit-backface-visibility: hidden; position: absolute; inset: 0; }
+    .card-back { transform: rotateY(180deg); }
+    @keyframes fadeUp { from {opacity:0; transform: translateY(8px);} to {opacity:1; transform:none;} }
+    .anim-fade-up { animation: fadeUp 0.45s ease-out both; }
+    .btn-press:active { transform: translateY(1px); }
+    .ornament { color: var(--gold); }
+    .rule-line { background: linear-gradient(to right, transparent, var(--rule) 20%, var(--rule) 80%, transparent); height: 1px; }
+
+    button { font-family: inherit; cursor: pointer; background: none; border: none; padding: 0; color: inherit; }
+    input, select, textarea { font-size: 16px; font-family: inherit; color: inherit; }
+
+    .container { max-width: 720px; margin: 0 auto; padding: 32px 20px 96px; position: relative; z-index: 10; }
+    @media (min-width: 640px) { .container { padding-left: 32px; padding-right: 32px; } }
+
+    .row { display: flex; }
+    .col { display: flex; flex-direction: column; }
+    .gap-1 { gap: 4px; } .gap-2 { gap: 8px; } .gap-3 { gap: 12px; } .gap-4 { gap: 16px; } .gap-5 { gap: 20px; } .gap-6 { gap: 24px; }
+    .items-center { align-items: center; } .items-end { align-items: flex-end; } .items-baseline { align-items: baseline; }
+    .justify-between { justify-content: space-between; } .justify-center { justify-content: center; }
+    .flex-1 { flex: 1; } .shrink-0 { flex-shrink: 0; }
+    .text-center { text-align: center; } .text-left { text-align: left; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    @media (min-width: 640px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
+    .nav-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+    @media (min-width: 640px) { .nav-grid { gap: 8px; } }
+
+    .w-full { width: 100%; }
+    .min-w-0 { min-width: 0; }
+    .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .relative { position: relative; }
+    .absolute { position: absolute; }
+    .fixed { position: fixed; }
+    .inset-0 { top: 0; right: 0; bottom: 0; left: 0; }
+
+    .mt-1 { margin-top: 4px; } .mt-2 { margin-top: 8px; } .mt-3 { margin-top: 12px; } .mt-4 { margin-top: 16px; } .mt-5 { margin-top: 20px; } .mt-6 { margin-top: 24px; } .mt-8 { margin-top: 32px; }
+    .mb-1 { margin-bottom: 4px; } .mb-2 { margin-bottom: 8px; } .mb-3 { margin-bottom: 12px; } .mb-4 { margin-bottom: 16px; } .mb-5 { margin-bottom: 20px; } .mb-6 { margin-bottom: 24px; }
+    .my-4 { margin-top: 16px; margin-bottom: 16px; }
+    .ml-1 { margin-left: 4px; } .ml-2 { margin-left: 8px; }
+    .mr-1 { margin-right: 4px; } .mr-2 { margin-right: 8px; }
+    .p-2 { padding: 8px; } .p-5 { padding: 20px; } .p-6 { padding: 24px; } .p-8 { padding: 32px; }
+    .px-2 { padding-left: 8px; padding-right: 8px; } .px-4 { padding-left: 16px; padding-right: 16px; }
+    .py-2 { padding-top: 8px; padding-bottom: 8px; } .py-3 { padding-top: 12px; padding-bottom: 12px; } .py-4 { padding-top: 16px; padding-bottom: 16px; }
+
+    .text-xs { font-size: 12px; }
+    .text-sm { font-size: 14px; }
+    .text-base { font-size: 16px; }
+    .text-lg { font-size: 18px; }
+    .text-xl { font-size: 20px; }
+    .text-2xl { font-size: 24px; }
+    .text-3xl { font-size: 30px; }
+    .leading-relaxed { line-height: 1.625; }
+    .leading-snug { line-height: 1.3; }
+    .leading-none { line-height: 1; }
+
+    .badge { position: absolute; top: 8px; right: 8px; font-size: 10px; border-radius: 9999px; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; background: var(--accent); color: var(--paper); }
+
+    .modal-backdrop { background: rgba(26,22,17,0.5); display: flex; align-items: flex-end; justify-content: center; }
+    @media (min-width: 640px) { .modal-backdrop { align-items: center; } }
+    .modal-card { width: 100%; padding: 24px; background: var(--paper); border: 1px solid var(--rule); }
+    @media (min-width: 640px) { .modal-card { max-width: 520px; margin: 24px; padding: 32px; } }
+
+    .boot { display: flex; align-items: center; justify-content: center; min-height: 100vh; font-family: 'Fraunces', Georgia, serif; font-style: italic; font-size: 1.5rem; color: var(--ink-soft); padding: 24px; text-align: center; }
+    .boot-error { color: var(--accent); font-size: 1rem; max-width: 480px; line-height: 1.5; margin-top: 16px; font-style: normal; font-family: 'Inter Tight', system-ui, sans-serif; }
+  </style>
+</head>
+<body class="paper-bg grain">
+  <div id="root"><div class="boot">opening the dictionary…</div></div>
+
+  <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <script>
+    window.addEventListener('load', function () {
+      setTimeout(function () {
+        if (!window.React || !window.ReactDOM || !window.Babel) {
+          var root = document.getElementById('root');
+          if (root) {
+            root.innerHTML =
+              '<div class="boot"><div>could not load.<div class="boot-error">' +
+              'A required library failed to load (React/Babel from unpkg). ' +
+              'Check your internet connection and refresh. If you have a content blocker, ' +
+              'allow scripts from unpkg.com.</div></div></div>';
+          }
+        }
+      }, 8000);
+    });
+  </script>
+
+  <script type="text/babel" data-presets="react">
+    const { useState, useEffect, useMemo } = React;
+
+    /* ===== Inline SVG icons ===== */
+    function Icon(props) {
+      return React.createElement('svg', {
+        width: props.size || 18,
+        height: props.size || 18,
+        viewBox: '0 0 24 24',
+        fill: 'none',
+        stroke: 'currentColor',
+        strokeWidth: props.strokeWidth || 1.75,
+        strokeLinecap: 'round',
+        strokeLinejoin: 'round',
+        style: { display: 'inline-block', verticalAlign: 'middle' },
+        dangerouslySetInnerHTML: { __html: props.path }
+      });
+    }
+    const ICONS = {
+      Layers3:      '<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.91a1 1 0 0 0 0-1.83Z"/><path d="M22 12.18 12.83 16.4a2 2 0 0 1-1.66 0L2 12.18"/><path d="M22 17.18l-9.17 4.22a2 2 0 0 1-1.66 0L2 17.18"/>',
+      Sparkles:     '<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>',
+      MessageQuote: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 12a2 2 0 0 0 2-2V8H8"/><path d="M14 12a2 2 0 0 0 2-2V8h-2"/>',
+      BookMarked:   '<path d="M10 2v8l3-3 3 3V2"/><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>',
+      Plus:         '<path d="M5 12h14"/><path d="M12 5v14"/>',
+      Close:        '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+      Volume:       '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>',
+      Reset:        '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
+      Check:        '<path d="M20 6 9 17l-5-5"/>',
+      Chevron:      '<path d="m9 18 6-6-6-6"/>',
+      Trash:        '<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+      Pencil:       '<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/>'
+    };
+    const I = (name) => (p) => <Icon {...p} path={ICONS[name]} />;
+    const Layers3 = I('Layers3'), Sparkles = I('Sparkles'), MessageQuote = I('MessageQuote'),
+          BookMarked = I('BookMarked'), Plus = I('Plus'), Close = I('Close'), Volume = I('Volume'),
+          Reset = I('Reset'), Check = I('Check'), Chevron = I('Chevron'), Trash = I('Trash'), Pencil = I('Pencil');
+
+    /* ===== SEED VOCABULARY ===== */
+    const SEED = [
+      /* === Original sophisticated set === */
+      { word: 'Ephemeral', pos: 'adj.', level: 'C1', pron: 'ih-FEM-er-uhl', def: 'Lasting for a very short time; fleeting.', ex: 'The ephemeral beauty of cherry blossoms draws crowds for just two weeks each spring.' },
+      { word: 'Ubiquitous', pos: 'adj.', level: 'C1', pron: 'yoo-BIK-wi-tus', def: 'Present, appearing, or found everywhere.', ex: 'Coffee shops have become so ubiquitous that you find one on nearly every corner.' },
+      { word: 'Quintessential', pos: 'adj.', level: 'C1', pron: 'kwin-tuh-SEN-shul', def: 'Representing the most perfect or typical example of a quality or class.', ex: 'A wool peacoat is the quintessential winter garment for coastal cities.' },
+      { word: 'Pernicious', pos: 'adj.', level: 'C2', pron: 'per-NISH-us', def: 'Having a harmful effect, especially in a gradual or subtle way.', ex: 'The pernicious habit of doomscrolling slowly eroded her sense of optimism.' },
+      { word: 'Sagacious', pos: 'adj.', level: 'C2', pron: 'suh-GAY-shus', def: 'Having keen mental discernment and good judgment; wise.', ex: 'Her sagacious advice steered the young company through three recessions.' },
+      { word: 'Mellifluous', pos: 'adj.', level: 'C2', pron: 'muh-LIF-loo-us', def: 'Sweet or musical; pleasant to hear.', ex: "The narrator's mellifluous voice could make a tax form sound like poetry." },
+      { word: 'Obsequious', pos: 'adj.', level: 'C2', pron: 'ob-SEE-kwee-us', def: 'Obedient or attentive to an excessive or servile degree.', ex: 'The obsequious waiter hovered at the table, refilling glasses that were nearly full.' },
+      { word: 'Recalcitrant', pos: 'adj.', level: 'C2', pron: 'ri-KAL-si-trunt', def: 'Having an obstinately uncooperative attitude toward authority.', ex: 'The recalcitrant printer refused every command, no matter how politely worded.' },
+      { word: 'Ineffable', pos: 'adj.', level: 'C2', pron: 'in-EF-uh-bul', def: 'Too great or extreme to be expressed in words.', ex: "Standing at the canyon's edge, she felt an ineffable sense of her own smallness." },
+      { word: 'Surreptitious', pos: 'adj.', level: 'C2', pron: 'sur-up-TISH-us', def: 'Kept secret, especially because it would not be approved of.', ex: 'He stole a surreptitious glance at his watch during the seemingly endless toast.' },
+      { word: 'Cogent', pos: 'adj.', level: 'C1', pron: 'KOH-jent', def: 'Clear, logical, and convincing.', ex: 'She made a cogent argument that even the skeptics on the board found hard to dismiss.' },
+      { word: 'Taciturn', pos: 'adj.', level: 'C2', pron: 'TAS-i-turn', def: 'Reserved or uncommunicative in speech; saying little.', ex: 'Her taciturn grandfather spoke perhaps a hundred words across the entire dinner.' },
+      { word: 'Magnanimous', pos: 'adj.', level: 'C1', pron: 'mag-NAN-i-mus', def: 'Generous or forgiving, especially toward a rival or less powerful person.', ex: "In a magnanimous gesture, the champion praised her opponent's skill at length." },
+      { word: 'Erudite', pos: 'adj.', level: 'C1', pron: 'AIR-yoo-dyt', def: 'Having or showing great knowledge or learning.', ex: 'His erudite footnotes nearly outnumbered the actual lines of the poem.' },
+      { word: 'Quotidian', pos: 'adj.', level: 'C2', pron: 'kwoh-TID-ee-un', def: 'Of or occurring every day; mundane and ordinary.', ex: 'She found unexpected joy in the quotidian rituals of making coffee and feeding the cat.' },
+      { word: 'Equivocate', pos: 'verb', level: 'C1', pron: 'ih-KWIV-uh-kayt', def: 'Use ambiguous language to conceal the truth or avoid commitment.', ex: 'Asked whether he had read the report, the senator equivocated for nearly a full minute.' },
+      { word: 'Propensity', pos: 'noun', level: 'C1', pron: 'pruh-PEN-si-tee', def: 'An inclination or natural tendency to behave in a particular way.', ex: "He had a propensity for ending every story with a quotation he'd half-remembered." },
+      { word: 'Esoteric', pos: 'adj.', level: 'C1', pron: 'es-uh-TAIR-ik', def: 'Intended for or likely to be understood by only a small number of people.', ex: 'The conversation drifted into the esoteric mathematics of knot theory.' },
+      { word: 'Laconic', pos: 'adj.', level: 'C2', pron: 'luh-KON-ik', def: 'Using very few words; concise to the point of seeming rude.', ex: 'Her laconic reply — "Fine." — somehow contained an entire argument.' },
+      { word: 'Sycophant', pos: 'noun', level: 'C2', pron: 'SIK-uh-funt', def: 'A person who acts obsequiously toward someone important to gain advantage.', ex: 'The CEO eventually grew tired of the sycophants who agreed with her every idea.' },
+      { word: 'Truculent', pos: 'adj.', level: 'C2', pron: 'TRUK-yoo-lunt', def: 'Eager or quick to argue or fight; aggressively defiant.', ex: 'A truculent silence settled over the negotiation table.' },
+      { word: 'Vicissitude', pos: 'noun', level: 'C2', pron: 'vi-SIS-i-tood', def: 'A change of circumstances or fortune, typically one that is unwelcome.', ex: 'The novel traces the vicissitudes of a family across four generations.' },
+      { word: 'Fastidious', pos: 'adj.', level: 'C1', pron: 'fas-TID-ee-us', def: 'Very attentive to and concerned about accuracy and detail.', ex: 'He was fastidious about his bookshelves — organized by subject, then by spine color.' },
+      { word: 'Ameliorate', pos: 'verb', level: 'C1', pron: 'uh-MEEL-yuh-rayt', def: 'Make something bad or unsatisfactory better.', ex: 'The new policy did little to ameliorate the underlying tensions on the team.' },
+      { word: 'Ostensible', pos: 'adj.', level: 'C1', pron: 'oh-STEN-si-bul', def: 'Stated or appearing to be true, but not necessarily so.', ex: 'The ostensible reason for the meeting was scheduling, but everyone knew it was about the budget.' },
+      { word: 'By and large', pos: 'phrase', level: 'B2', pron: '', def: 'On the whole; generally speaking.', ex: 'By and large, the reviews were positive, though a few critics took issue with the ending.' },
+      { word: 'In a nutshell', pos: 'phrase', level: 'B2', pron: '', def: 'In the fewest possible words; in summary.', ex: 'In a nutshell, the project will save six months and roughly half the budget.' },
+      { word: 'Beg the question', pos: 'phrase', level: 'C1', pron: '', def: "To assume the truth of an argument's conclusion in its premise; loosely, to invite an obvious follow-up.", ex: 'Their proposal begs the question of who will ultimately pay for the upkeep.' },
+      { word: 'Cut to the chase', pos: 'phrase', level: 'B2', pron: '', def: 'Get to the point without wasting time.', ex: 'I appreciate the context, but can we cut to the chase and decide?' },
+      { word: 'On the same page', pos: 'phrase', level: 'B2', pron: '', def: 'In agreement or sharing the same understanding.', ex: "Before we present to the client, let's make sure we're on the same page about pricing." },
+
+      /* === B2 single words (upper-intermediate core) === */
+      { word: 'Accomplish', pos: 'verb', level: 'B2', pron: 'uh-KOM-plish', def: 'To succeed in doing or completing something.', ex: 'She accomplished more in her first year than most managers do in five.' },
+      { word: 'Acquire', pos: 'verb', level: 'B2', pron: 'uh-KWIRE', def: 'To obtain, gain, or come to possess.', ex: 'Over the years, he acquired a deep understanding of the regional market.' },
+      { word: 'Anticipate', pos: 'verb', level: 'B2', pron: 'an-TIS-i-payt', def: 'To expect or foresee something happening.', ex: 'Good drivers anticipate the actions of others rather than just react to them.' },
+      { word: 'Cautious', pos: 'adj.', level: 'B2', pron: 'KAW-shus', def: 'Careful to avoid potential problems or danger.', ex: 'She remained cautious about the new investment despite the optimistic forecasts.' },
+      { word: 'Considerable', pos: 'adj.', level: 'B2', pron: 'kun-SID-er-uh-bul', def: 'Notably large in size, amount, or importance.', ex: 'The renovation will require considerable time and a far larger budget than first estimated.' },
+      { word: 'Crucial', pos: 'adj.', level: 'B2', pron: 'KROO-shul', def: 'Decisive; of great or critical importance.', ex: 'The next forty-eight hours will be crucial in determining the project\u2019s success.' },
+      { word: 'Demonstrate', pos: 'verb', level: 'B2', pron: 'DEM-un-strayt', def: 'To clearly show that something exists or is true.', ex: 'The study demonstrates a clear link between sleep quality and decision-making.' },
+      { word: 'Determined', pos: 'adj.', level: 'B2', pron: 'di-TUR-mind', def: 'Showing firmness of purpose; resolute.', ex: 'He was determined to finish the marathon despite a pulled hamstring.' },
+      { word: 'Distinguish', pos: 'verb', level: 'B2', pron: 'dis-TING-gwish', def: 'To recognize or treat someone or something as different.', ex: 'It can be hard to distinguish genuine concern from mere politeness.' },
+      { word: 'Eventually', pos: 'adv.', level: 'B2', pron: 'i-VEN-choo-uh-lee', def: 'In the end, especially after a long time.', ex: 'The negotiations were tense, but they eventually reached an agreement.' },
+      { word: 'Genuine', pos: 'adj.', level: 'B2', pron: 'JEN-yoo-in', def: 'Truly what it appears to be; authentic.', ex: 'Her surprise was genuine — she had no idea about the party.' },
+      { word: 'Gradually', pos: 'adv.', level: 'B2', pron: 'GRAJ-oo-uh-lee', def: 'Slowly, in small steps over a period of time.', ex: 'The pain gradually subsided over the course of the week.' },
+      { word: 'Inevitable', pos: 'adj.', level: 'B2', pron: 'in-EV-i-tuh-bul', def: 'Certain to happen; unavoidable.', ex: 'Given the rising costs, a fare increase was inevitable.' },
+      { word: 'Maintain', pos: 'verb', level: 'B2', pron: 'mayn-TAYN', def: 'To keep something in existence or in a particular state; to assert firmly.', ex: 'She maintained that the original report had been accurate all along.' },
+      { word: 'Persistent', pos: 'adj.', level: 'B2', pron: 'per-SIS-tunt', def: 'Continuing firmly despite difficulty or opposition.', ex: 'A persistent cough that lasts more than three weeks should be checked by a doctor.' },
+      { word: 'Pursue', pos: 'verb', level: 'B2', pron: 'per-SOO', def: 'To follow or chase; to engage in over time.', ex: 'After law school, she chose to pursue a career in public defense.' },
+      { word: 'Reluctant', pos: 'adj.', level: 'B2', pron: 'ri-LUK-tunt', def: 'Unwilling or hesitant to do something.', ex: 'He was reluctant to share his opinion until he had read the full report.' },
+      { word: 'Reveal', pos: 'verb', level: 'B2', pron: 'ri-VEEL', def: 'To make previously unknown information known; to disclose.', ex: 'The investigation revealed a pattern of small but consistent errors.' },
+      { word: 'Significant', pos: 'adj.', level: 'B2', pron: 'sig-NIF-i-kunt', def: 'Sufficiently great or important to merit attention.', ex: 'There has been a significant improvement in air quality since the new regulations.' },
+      { word: 'Subsequent', pos: 'adj.', level: 'B2', pron: 'SUB-si-kwent', def: 'Coming after something else in time or order.', ex: 'The first meeting went well; subsequent discussions proved more difficult.' },
+      { word: 'Sufficient', pos: 'adj.', level: 'B2', pron: 'suh-FISH-unt', def: 'Enough; adequate for the purpose.', ex: 'We have sufficient supplies to last through the weekend.' },
+      { word: 'Tendency', pos: 'noun', level: 'B2', pron: 'TEN-dun-see', def: 'An inclination toward a particular characteristic or behavior.', ex: 'He has a tendency to underestimate how long his projects will take.' },
+      { word: 'Vague', pos: 'adj.', level: 'B2', pron: 'vayg', def: 'Of uncertain, indefinite, or unclear meaning.', ex: 'Her answers were so vague that no one could tell what she actually thought.' },
+      { word: 'Endure', pos: 'verb', level: 'B2', pron: 'in-DOOR', def: 'To suffer something patiently; to remain in existence.', ex: 'The cathedral has endured wars, fires, and centuries of weather.' },
+      { word: 'Implement', pos: 'verb', level: 'B2', pron: 'IM-pluh-ment', def: 'To put a decision or plan into effect.', ex: 'The new policy will be implemented in stages over the next year.' },
+
+      /* === C1 single words (advanced/academic register) === */
+      { word: 'Alleviate', pos: 'verb', level: 'C1', pron: 'uh-LEE-vee-ayt', def: 'To make a problem or suffering less severe.', ex: 'The new medication helped alleviate her chronic back pain.' },
+      { word: 'Ambiguous', pos: 'adj.', level: 'C1', pron: 'am-BIG-yoo-us', def: 'Open to more than one interpretation; unclear.', ex: 'The wording of the contract was deliberately ambiguous, leaving both sides room to maneuver.' },
+      { word: 'Coherent', pos: 'adj.', level: 'C1', pron: 'koh-HEER-unt', def: 'Logical, consistent, and clearly connected.', ex: 'Despite his nerves, he managed to deliver a coherent and persuasive speech.' },
+      { word: 'Compelling', pos: 'adj.', level: 'C1', pron: 'kum-PEL-ing', def: 'Powerfully persuasive or attention-grabbing.', ex: 'She presented compelling evidence that the original conclusion was flawed.' },
+      { word: 'Concede', pos: 'verb', level: 'C1', pron: 'kun-SEED', def: 'To admit, often reluctantly, that something is true.', ex: 'He eventually conceded that his assumptions had been mistaken.' },
+      { word: 'Contemplate', pos: 'verb', level: 'C1', pron: 'KON-tum-playt', def: 'To think deeply or carefully about something.', ex: 'She sat by the window contemplating her next move.' },
+      { word: 'Contemporary', pos: 'adj.', level: 'C1', pron: 'kun-TEM-puh-rer-ee', def: 'Belonging to the present time; modern.', ex: 'The museum\u2019s collection of contemporary photography is among the finest in Europe.' },
+      { word: 'Deteriorate', pos: 'verb', level: 'C1', pron: 'di-TEER-ee-uh-rayt', def: 'To become progressively worse in condition or quality.', ex: 'Relations between the two countries deteriorated rapidly after the incident.' },
+      { word: 'Diligent', pos: 'adj.', level: 'C1', pron: 'DIL-i-junt', def: 'Showing careful, persistent effort in one\u2019s work.', ex: 'A diligent researcher checks every source twice before publishing.' },
+      { word: 'Discrepancy', pos: 'noun', level: 'C1', pron: 'dis-KREP-un-see', def: 'A difference or inconsistency, especially between figures or accounts.', ex: 'The auditor flagged a small discrepancy between the two reports.' },
+      { word: 'Empirical', pos: 'adj.', level: 'C1', pron: 'em-PEER-i-kul', def: 'Based on observation or experience rather than theory.', ex: 'There is little empirical evidence to support the claim.' },
+      { word: 'Entail', pos: 'verb', level: 'C1', pron: 'in-TAYL', def: 'To involve something as a necessary consequence.', ex: 'Running a small business entails far more paperwork than most people expect.' },
+      { word: 'Feasible', pos: 'adj.', level: 'C1', pron: 'FEE-zuh-bul', def: 'Possible to do easily or conveniently; practicable.', ex: 'Given the budget, expanding internationally simply isn\u2019t feasible this year.' },
+      { word: 'Hypothesis', pos: 'noun', level: 'C1', pron: 'hy-POTH-uh-sis', def: 'A proposed explanation made on limited evidence as a starting point for investigation.', ex: 'The team designed an experiment to test the hypothesis directly.' },
+      { word: 'Indispensable', pos: 'adj.', level: 'C1', pron: 'in-dis-PEN-suh-bul', def: 'Absolutely necessary; cannot be done without.', ex: 'Over time, her quiet judgment became indispensable to the senior team.' },
+      { word: 'Inherent', pos: 'adj.', level: 'C1', pron: 'in-HEER-unt', def: 'Existing as a natural and inseparable part of something.', ex: 'There are inherent risks in any long-term investment.' },
+      { word: 'Mitigate', pos: 'verb', level: 'C1', pron: 'MIT-i-gayt', def: 'To make less severe, serious, or painful.', ex: 'The company introduced several measures to mitigate the impact of the layoffs.' },
+      { word: 'Plausible', pos: 'adj.', level: 'C1', pron: 'PLAW-zuh-bul', def: 'Seeming reasonable or probable.', ex: 'Her account of the events was plausible, but it didn\u2019t match the photographs.' },
+      { word: 'Prevalent', pos: 'adj.', level: 'C1', pron: 'PREV-uh-lunt', def: 'Widespread; commonly occurring in a particular area or at a particular time.', ex: 'Remote work is now prevalent across most knowledge industries.' },
+      { word: 'Reconcile', pos: 'verb', level: 'C1', pron: 'REK-un-syl', def: 'To restore friendly relations; to make two views or facts consistent.', ex: 'It is hard to reconcile his public image with his private behavior.' },
+      { word: 'Refute', pos: 'verb', level: 'C1', pron: 'ri-FYOOT', def: 'To prove a statement or theory wrong with evidence.', ex: 'The new data refuted decades of accepted assumptions.' },
+      { word: 'Scrutinize', pos: 'verb', level: 'C1', pron: 'SKROO-tuh-nyz', def: 'To examine closely and critically.', ex: 'Every clause of the agreement was scrutinized by the legal team.' },
+      { word: 'Substantiate', pos: 'verb', level: 'C1', pron: 'sub-STAN-shee-ayt', def: 'To support a claim with evidence or proof.', ex: 'The journalist had to substantiate every allegation before publication.' },
+      { word: 'Underscore', pos: 'verb', level: 'C1', pron: 'UN-der-skor', def: 'To emphasize or give greater importance to something.', ex: 'The report underscored the urgency of the housing shortage.' },
+      { word: 'Unprecedented', pos: 'adj.', level: 'C1', pron: 'un-PRES-i-den-tid', def: 'Never done or known before; without earlier example.', ex: 'The court\u2019s ruling was unprecedented and likely to be appealed.' },
+
+      /* === Phrasal verbs (high-frequency B2/C1) === */
+      { word: 'Bring up', pos: 'phr. verb', level: 'B2', pron: '', def: 'To raise a topic in conversation; also: to raise a child.', ex: 'I didn\u2019t want to bring up the budget issue right at the end of the meeting.' },
+      { word: 'Bring about', pos: 'phr. verb', level: 'C1', pron: '', def: 'To cause something to happen.', ex: 'The reforms brought about a fundamental change in the way the agency operates.' },
+      { word: 'Carry out', pos: 'phr. verb', level: 'B2', pron: '', def: 'To perform or complete a task, plan, or order.', ex: 'The team carried out the safety inspection over the weekend.' },
+      { word: 'Come across', pos: 'phr. verb', level: 'B2', pron: '', def: 'To encounter unexpectedly; also: to give a particular impression.', ex: 'I came across an old photograph of my grandfather while clearing the attic.' },
+      { word: 'Come up with', pos: 'phr. verb', level: 'B2', pron: '', def: 'To think of (an idea, plan, or solution).', ex: 'She came up with a clever workaround that saved the project.' },
+      { word: 'Figure out', pos: 'phr. verb', level: 'B2', pron: '', def: 'To understand or solve something through thought.', ex: 'It took me a while to figure out why the printer kept jamming.' },
+      { word: 'Get along', pos: 'phr. verb', level: 'B2', pron: '', def: 'To have a friendly relationship with someone.', ex: 'They didn\u2019t get along at first, but they now make a strong team.' },
+      { word: 'Give in', pos: 'phr. verb', level: 'B2', pron: '', def: 'To yield, surrender, or stop resisting.', ex: 'He held out for an hour, then finally gave in and ordered dessert.' },
+      { word: 'Look into', pos: 'phr. verb', level: 'B2', pron: '', def: 'To investigate or examine something.', ex: 'I\u2019ll look into the discrepancy and get back to you tomorrow.' },
+      { word: 'Make up for', pos: 'phr. verb', level: 'B2', pron: '', def: 'To compensate for something missing or wrong.', ex: 'A heartfelt apology can\u2019t entirely make up for years of neglect.' },
+      { word: 'Pull off', pos: 'phr. verb', level: 'C1', pron: '', def: 'To succeed in doing something difficult.', ex: 'Hosting a wedding for two hundred guests in the rain — and pulling it off — was extraordinary.' },
+      { word: 'Put off', pos: 'phr. verb', level: 'B2', pron: '', def: 'To postpone; also: to discourage someone.', ex: 'We had to put off the trip until the visa came through.' },
+      { word: 'Run out of', pos: 'phr. verb', level: 'B2', pron: '', def: 'To use up the entire supply of something.', ex: 'We ran out of milk halfway through the recipe.' },
+      { word: 'Set up', pos: 'phr. verb', level: 'B2', pron: '', def: 'To establish, arrange, or prepare.', ex: 'They set up a small consultancy from a converted garage.' },
+      { word: 'Stand out', pos: 'phr. verb', level: 'B2', pron: '', def: 'To be conspicuous, noticeable, or notably better.', ex: 'Her thoughtful answers stood out in an otherwise routine interview.' },
+      { word: 'Take on', pos: 'phr. verb', level: 'B2', pron: '', def: 'To accept a responsibility; also: to hire someone.', ex: 'I shouldn\u2019t have taken on a third client this quarter.' },
+      { word: 'Turn down', pos: 'phr. verb', level: 'B2', pron: '', def: 'To reject an offer, request, or application.', ex: 'She turned down a generous offer because the role didn\u2019t align with her values.' },
+      { word: 'Turn out', pos: 'phr. verb', level: 'B2', pron: '', def: 'To prove to be the case in the end; to result.', ex: 'The rumor turned out to be completely unfounded.' },
+      { word: 'Work out', pos: 'phr. verb', level: 'B2', pron: '', def: 'To resolve or solve; also: to exercise.', ex: 'I\u2019m sure we can work out a schedule that suits everyone.' },
+      { word: 'Catch up', pos: 'phr. verb', level: 'B2', pron: '', def: 'To reach the same level or position as others; also: to share recent news.', ex: 'After missing two weeks, it took her a while to catch up with the class.' },
+
+      /* === Discourse markers, signposting, and idioms === */
+      { word: 'On the other hand', pos: 'phrase', level: 'B2', pron: '', def: 'Used to introduce a contrasting point of view.', ex: 'The flat is small; on the other hand, the location is unbeatable.' },
+      { word: 'That being said', pos: 'phrase', level: 'C1', pron: '', def: 'Used to acknowledge a previous point before adding a qualification.', ex: 'The plan is ambitious. That being said, the team has the experience to deliver it.' },
+      { word: 'All things considered', pos: 'phrase', level: 'C1', pron: '', def: 'Taking everything relevant into account.', ex: 'All things considered, the launch went better than we had any right to expect.' },
+      { word: 'In light of', pos: 'phrase', level: 'C1', pron: '', def: 'Given the circumstances; considering.', ex: 'In light of the recent findings, the committee will revisit its earlier decision.' },
+      { word: 'Needless to say', pos: 'phrase', level: 'C1', pron: '', def: 'Used to introduce a point that is obvious or expected.', ex: 'Needless to say, after a fourteen-hour flight no one wanted to talk about logistics.' },
+      { word: 'Bear in mind', pos: 'phrase', level: 'B2', pron: '', def: 'To remember or take into consideration.', ex: 'Bear in mind that prices are likely to rise before the end of the year.' },
+      { word: 'More often than not', pos: 'phrase', level: 'B2', pron: '', def: 'Usually; in most cases.', ex: 'More often than not, the simplest explanation turns out to be the correct one.' },
+      { word: 'For the most part', pos: 'phrase', level: 'B2', pron: '', def: 'Mostly; in general; on the whole.', ex: 'For the most part, the feedback has been encouraging.' },
+      { word: 'In retrospect', pos: 'phrase', level: 'C1', pron: '', def: 'Looking back at past events with present knowledge.', ex: 'In retrospect, accepting that promotion was the smartest move I ever made.' },
+      { word: 'At the end of the day', pos: 'phrase', level: 'B2', pron: '', def: 'Ultimately; when everything is taken into account.', ex: 'At the end of the day, what matters is whether the customer comes back.' },
+      { word: 'The bottom line', pos: 'phrase', level: 'B2', pron: '', def: 'The most important point or final outcome.', ex: 'The bottom line is that we need to ship something usable by Friday.' },
+      { word: 'Food for thought', pos: 'phrase', level: 'B2', pron: '', def: 'Something worth thinking about carefully.', ex: 'Her closing remarks gave the audience plenty of food for thought.' },
+      { word: 'Read between the lines', pos: 'phrase', level: 'C1', pron: '', def: 'To understand a hidden or implied meaning.', ex: 'Read between the lines of his email and you\u2019ll see he\u2019s clearly unhappy with the proposal.' },
+      { word: 'Hit the nail on the head', pos: 'phrase', level: 'C1', pron: '', def: 'To describe or identify something exactly right.', ex: 'When she said the team lacked direction rather than effort, she hit the nail on the head.' },
+      { word: 'Out of the blue', pos: 'phrase', level: 'B2', pron: '', def: 'Unexpectedly; without warning.', ex: 'An old colleague called me out of the blue and offered me a job.' },
+
+      /* ===== ACADEMIC & PROFESSIONAL (CPE / IELTS register) ===== */
+      { word: 'Adhere to', pos: 'verb', level: 'C1', pron: 'ad-HEER', def: 'To follow or abide by strictly (rules, principles, methods).', ex: 'All applicants must adhere to the formatting guidelines outlined in section three.' },
+      { word: 'Allude to', pos: 'verb', level: 'C2', pron: 'uh-LOOD', def: 'To suggest or refer to indirectly without naming explicitly.', ex: 'In her closing remarks she alluded to several broader concerns without naming them.' },
+      { word: 'Articulate', pos: 'verb', level: 'C1', pron: 'ar-TIK-yuh-layt', def: 'To express an idea clearly and effectively.', ex: 'The candidate struggled to articulate why she was the right person for the role.' },
+      { word: 'Assert', pos: 'verb', level: 'C1', pron: 'uh-SURT', def: 'To state forcefully, often without supplying proof.', ex: 'The author asserts that the policy did more harm than good \u2014 but offers little supporting evidence.' },
+      { word: 'Attribute', pos: 'verb', level: 'C1', pron: 'uh-TRIB-yoot', def: 'To regard something as caused by, or belonging to, a particular source.', ex: 'Economists attribute the slowdown chiefly to weakening consumer confidence.' },
+      { word: 'Bolster', pos: 'verb', level: 'C2', pron: 'BOHL-ster', def: 'To support, strengthen, or reinforce.', ex: 'The new evidence considerably bolsters the case for revising the original ruling.' },
+      { word: 'Constitute', pos: 'verb', level: 'C1', pron: 'KON-sti-toot', def: 'To be a part of, to form, or to amount to something.', ex: 'These three findings together constitute a serious challenge to the prevailing theory.' },
+      { word: 'Contend', pos: 'verb', level: 'C2', pron: 'kun-TEND', def: 'To argue or maintain a position, especially in debate.', ex: 'Critics contend that the reforms address the symptoms rather than the underlying causes.' },
+      { word: 'Corroborate', pos: 'verb', level: 'C2', pron: 'kuh-ROB-uh-rayt', def: 'To confirm or support with additional evidence.', ex: 'Two independent witnesses corroborated the account given by the defendant.' },
+      { word: 'Curtail', pos: 'verb', level: 'C2', pron: 'ker-TAYL', def: 'To reduce, limit, or cut short.', ex: 'The funding cuts forced the laboratory to curtail several long-running projects.' },
+      { word: 'Delineate', pos: 'verb', level: 'C2', pron: 'di-LIN-ee-ayt', def: 'To describe or set out precisely; to outline.', ex: 'Chapter one delineates the methodology used throughout the study.' },
+      { word: 'Discern', pos: 'verb', level: 'C1', pron: 'di-SURN', def: 'To perceive or recognize something subtle or unclear.', ex: 'It was difficult to discern any consistent pattern in the early data.' },
+      { word: 'Disseminate', pos: 'verb', level: 'C2', pron: 'di-SEM-i-nayt', def: 'To spread or distribute (information) widely.', ex: 'The findings were disseminated through both academic journals and the popular press.' },
+      { word: 'Elucidate', pos: 'verb', level: 'C2', pron: 'i-LOO-si-dayt', def: 'To make something clear; to explain in detail.', ex: 'A second appendix elucidates the statistical model used by the authors.' },
+      { word: 'Galvanize', pos: 'verb', level: 'C2', pron: 'GAL-vuh-nyz', def: 'To shock or excite into taking action.', ex: 'The report galvanized lawmakers into passing the bill within a month.' },
+      { word: 'Impede', pos: 'verb', level: 'C1', pron: 'im-PEED', def: 'To delay or obstruct someone or something.', ex: 'Excessive regulation can impede innovation, especially in younger industries.' },
+      { word: 'Posit', pos: 'verb', level: 'C2', pron: 'POZ-it', def: 'To put forward as a basis for argument; to assume.', ex: 'The paper posits a direct link between sleep quality and long-term decision-making.' },
+      { word: 'Preclude', pos: 'verb', level: 'C2', pron: 'pri-KLOOD', def: 'To prevent something from happening; to make impossible.', ex: 'The terms of the contract preclude any further negotiation on price.' },
+      { word: 'Stipulate', pos: 'verb', level: 'C1', pron: 'STIP-yoo-layt', def: 'To specify a requirement as part of an agreement.', ex: 'The lease stipulates that no structural alterations may be made without written consent.' },
+      { word: 'Underpin', pos: 'verb', level: 'C1', pron: 'un-der-PIN', def: 'To form the basis of something; to support.', ex: 'A commitment to transparency has long underpinned the company\u2019s public image.' },
+      { word: 'Caveat', pos: 'noun', level: 'C2', pron: 'KAV-ee-at', def: 'A warning or qualification that limits the scope of something.', ex: 'I would recommend the book, with one caveat: the final chapter feels rushed.' },
+      { word: 'Consensus', pos: 'noun', level: 'C1', pron: 'kun-SEN-sus', def: 'General agreement among a group.', ex: 'There is now broad scientific consensus on the matter.' },
+      { word: 'Dichotomy', pos: 'noun', level: 'C2', pron: 'dy-KOT-uh-mee', def: 'A division or contrast between two opposed things.', ex: 'The film explores the dichotomy between public duty and private desire.' },
+      { word: 'Implication', pos: 'noun', level: 'C1', pron: 'im-pli-KAY-shun', def: 'A likely consequence of something; a suggestion not explicitly stated.', ex: 'The implications of the ruling will not be felt for several years.' },
+      { word: 'Nuance', pos: 'noun', level: 'C1', pron: 'NOO-ahns', def: 'A subtle difference in meaning, expression, or sound.', ex: 'Translation often loses the nuance of the original phrasing.' },
+      { word: 'Paradigm', pos: 'noun', level: 'C1', pron: 'PAR-uh-dym', def: 'A typical example or model; a conceptual framework.', ex: 'The new theory represents a fundamental paradigm shift in how we understand memory.' },
+      { word: 'Premise', pos: 'noun', level: 'C1', pron: 'PREM-is', def: 'A basic assumption from which an argument proceeds.', ex: 'The whole argument rests on a flawed premise about consumer behavior.' },
+      { word: 'Repercussion', pos: 'noun', level: 'C1', pron: 'rep-er-KUSH-un', def: 'An unintended consequence, usually negative.', ex: 'The decision had repercussions that lasted well beyond his time in office.' },
+      { word: 'Salient', pos: 'adj.', level: 'C2', pron: 'SAY-lee-unt', def: 'Most noticeable or important.', ex: 'Let me summarize the most salient points before we open the floor.' },
+      { word: 'Tenuous', pos: 'adj.', level: 'C2', pron: 'TEN-yoo-us', def: 'Very weak or slight; lacking substance.', ex: 'The connection between the two events is, at best, tenuous.' },
+      { word: 'Spurious', pos: 'adj.', level: 'C2', pron: 'SPYOOR-ee-us', def: 'False or fake despite seeming genuine; based on flawed reasoning.', ex: 'The article cited a spurious correlation as if it were causal.' },
+
+      /* ===== LITERARY & JOURNALISTIC ===== */
+      { word: 'Wistful', pos: 'adj.', level: 'C2', pron: 'WIST-ful', def: 'Quietly thoughtful, often tinged with sadness or longing.', ex: 'She gave a wistful smile when the old song came on the radio.' },
+      { word: 'Trenchant', pos: 'adj.', level: 'C2', pron: 'TREN-chunt', def: 'Vigorous, incisive, and effective in expression.', ex: 'Her trenchant analysis of the budget left even her opponents nodding.' },
+      { word: 'Sanguine', pos: 'adj.', level: 'C2', pron: 'SANG-gwin', def: 'Cheerfully optimistic, especially in difficult circumstances.', ex: 'He remained sanguine about the company\u2019s prospects despite the gloomy forecast.' },
+      { word: 'Capricious', pos: 'adj.', level: 'C2', pron: 'kuh-PRI-shus', def: 'Given to sudden, unpredictable changes of mood or behavior.', ex: 'The capricious weather in early April caught the festival organizers off guard.' },
+      { word: 'Inscrutable', pos: 'adj.', level: 'C2', pron: 'in-SKROO-tuh-bul', def: 'Impossible to understand or interpret.', ex: 'Her expression remained inscrutable throughout the verdict.' },
+      { word: 'Impervious', pos: 'adj.', level: 'C2', pron: 'im-PUR-vee-us', def: 'Not affected or influenced by something.', ex: 'He seemed impervious to criticism, no matter how pointed.' },
+      { word: 'Indefatigable', pos: 'adj.', level: 'C2', pron: 'in-di-FAT-i-guh-bul', def: 'Persisting tirelessly; unable to be wearied.', ex: 'Her indefatigable advocacy eventually changed the law.' },
+      { word: 'Perspicacious', pos: 'adj.', level: 'C2', pron: 'per-spi-KAY-shus', def: 'Having keen insight; mentally sharp.', ex: 'A perspicacious editor can spot a flawed argument from the first paragraph.' },
+      { word: 'Beguiling', pos: 'adj.', level: 'C2', pron: 'bi-GY-ling', def: 'Charming or enchanting, often in a slightly deceptive way.', ex: 'The novel\u2019s beguiling opening chapter conceals a much darker story.' },
+      { word: 'Halcyon', pos: 'adj.', level: 'C2', pron: 'HAL-see-un', def: 'Denoting a period of peace, prosperity, and happiness.', ex: 'She often spoke of the halcyon days of the early newsroom.' },
+      { word: 'Mercurial', pos: 'adj.', level: 'C2', pron: 'mer-KYOOR-ee-ul', def: 'Subject to sudden or unpredictable changes of mood; volatile.', ex: 'His mercurial temperament made him both a thrilling director and a difficult colleague.' },
+      { word: 'Insidious', pos: 'adj.', level: 'C2', pron: 'in-SID-ee-us', def: 'Proceeding in a gradual, subtle way, with harmful effects.', ex: 'The most insidious form of bias is the kind we don\u2019t notice in ourselves.' },
+      { word: 'Petulant', pos: 'adj.', level: 'C1', pron: 'PET-yoo-lunt', def: 'Childishly sulky or bad-tempered.', ex: 'A petulant tweet from the candidate dominated the news cycle for two days.' },
+      { word: 'Languish', pos: 'verb', level: 'C2', pron: 'LANG-gwish', def: 'To lose or lack vitality; to suffer from being kept in unwelcome conditions.', ex: 'The proposal languished on his desk for six months before anyone read it.' },
+      { word: 'Coalesce', pos: 'verb', level: 'C2', pron: 'koh-uh-LES', def: 'To come together to form one mass or whole.', ex: 'A handful of small protests gradually coalesced into a national movement.' },
+      { word: 'Permeate', pos: 'verb', level: 'C2', pron: 'PUR-mee-ayt', def: 'To spread throughout something; to pervade.', ex: 'A quiet skepticism had begun to permeate the entire department.' },
+      { word: 'Reverberate', pos: 'verb', level: 'C2', pron: 'ri-VUR-bur-ayt', def: 'To echo loudly; to have a continuing effect.', ex: 'The decision will reverberate through the industry for years to come.' },
+      { word: 'Burgeon', pos: 'verb', level: 'C2', pron: 'BUR-jun', def: 'To grow or expand rapidly.', ex: 'Streaming services have burgeoned into a multi-billion-dollar industry within a decade.' },
+      { word: 'Wane', pos: 'verb', level: 'C1', pron: 'wayn', def: 'To gradually decrease in size, intensity, or importance.', ex: 'Public interest in the scandal began to wane within weeks.' },
+      { word: 'Pique', pos: 'verb', level: 'C2', pron: 'peek', def: 'To stimulate (interest or curiosity); also: to wound someone\u2019s pride.', ex: 'A single sentence in the abstract was enough to pique the reviewer\u2019s curiosity.' },
+      { word: 'Reverie', pos: 'noun', level: 'C2', pron: 'REV-uh-ree', def: 'A state of being pleasantly lost in one\u2019s thoughts; a daydream.', ex: 'She was startled out of her reverie by the sound of the doorbell.' },
+      { word: 'Zeitgeist', pos: 'noun', level: 'C2', pron: 'TSYT-gyst', def: 'The defining mood or spirit of a particular period of history.', ex: 'The novel captures the zeitgeist of late-nineties optimism with uncanny precision.' },
+      { word: 'Ennui', pos: 'noun', level: 'C2', pron: 'on-WEE', def: 'A feeling of listless boredom and dissatisfaction.', ex: 'After a year of remote work, a quiet ennui had set in.' },
+      { word: 'Penchant', pos: 'noun', level: 'C2', pron: 'PEN-chunt', def: 'A strong habitual liking for something or for doing something.', ex: 'He has a penchant for ending meetings with an unexpected literary quotation.' },
+      { word: 'Pellucid', pos: 'adj.', level: 'C2', pron: 'puh-LOO-sid', def: 'Translucently clear; easy to understand.', ex: 'Her pellucid prose makes complex economics accessible to general readers.' },
+
+      /* ===== ADVANCED PHRASAL VERBS ===== */
+      { word: 'Account for', pos: 'phr. verb', level: 'C1', pron: '', def: 'To explain the cause of; to make up a portion of.', ex: 'Three departments account for nearly seventy percent of the entire budget.' },
+      { word: 'Bank on', pos: 'phr. verb', level: 'C1', pron: '', def: 'To rely or depend on with confidence.', ex: 'I wouldn\u2019t bank on the train arriving on time during a strike.' },
+      { word: 'Brush aside', pos: 'phr. verb', level: 'C2', pron: '', def: 'To dismiss something quickly without serious consideration.', ex: 'The CEO brushed aside concerns about staff morale, calling them exaggerated.' },
+      { word: 'Chalk up to', pos: 'phr. verb', level: 'C2', pron: '', def: 'To attribute a result, often a setback, to a particular cause.', ex: 'I chalked up the early stumbles to inexperience rather than poor judgment.' },
+      { word: 'Dredge up', pos: 'phr. verb', level: 'C2', pron: '', def: 'To bring up something unwelcome from the past.', ex: 'There\u2019s no need to dredge up old quarrels in the middle of a celebration.' },
+      { word: 'Drown out', pos: 'phr. verb', level: 'C2', pron: '', def: 'To make a sound inaudible by being louder than it.', ex: 'Genuine debate is too often drowned out by partisan noise.' },
+      { word: 'Embark on', pos: 'phr. verb', level: 'C1', pron: '', def: 'To begin a course of action, especially an ambitious one.', ex: 'After her degree, she embarked on a year-long project documenting coastal erosion.' },
+      { word: 'Ferret out', pos: 'phr. verb', level: 'C2', pron: '', def: 'To discover something through persistent searching.', ex: 'Investigative journalists eventually ferreted out the missing receipts.' },
+      { word: 'Gloss over', pos: 'phr. verb', level: 'C2', pron: '', def: 'To treat or describe something briefly so as to avoid embarrassing detail.', ex: 'The official report glosses over the most damaging findings entirely.' },
+      { word: 'Hammer out', pos: 'phr. verb', level: 'C2', pron: '', def: 'To work out the details of something through long, difficult discussion.', ex: 'It took the negotiators six weeks to hammer out an agreement.' },
+      { word: 'Hinge on', pos: 'phr. verb', level: 'C1', pron: '', def: 'To depend critically on a single factor.', ex: 'The success of the launch hinges on the reliability of two suppliers.' },
+      { word: 'Iron out', pos: 'phr. verb', level: 'C2', pron: '', def: 'To resolve small difficulties or disagreements.', ex: 'There are still a few details to iron out before the contract is signed.' },
+      { word: 'Mull over', pos: 'phr. verb', level: 'C2', pron: '', def: 'To think about something carefully and at length.', ex: 'Give me the weekend to mull over the offer before I respond.' },
+      { word: 'Pan out', pos: 'phr. verb', level: 'C2', pron: '', def: 'To turn out or develop in a particular way, especially well.', ex: 'The pilot programme didn\u2019t quite pan out as we\u2019d hoped, but we learned a lot.' },
+      { word: 'Paper over', pos: 'phr. verb', level: 'C2', pron: '', def: 'To hide a problem or disagreement superficially rather than resolve it.', ex: 'The press release simply paper over the deeper structural problems within the team.' },
+      { word: 'Peter out', pos: 'phr. verb', level: 'C2', pron: '', def: 'To gradually decrease and stop.', ex: 'The conversation petered out as people began checking their phones.' },
+      { word: 'Single out', pos: 'phr. verb', level: 'C1', pron: '', def: 'To choose someone or something for special attention.', ex: 'The committee singled out three projects as exceptional.' },
+      { word: 'Tease out', pos: 'phr. verb', level: 'C2', pron: '', def: 'To extract subtle information or meaning through careful effort.', ex: 'It took several interviews to tease out what had really happened that night.' },
+      { word: 'Weather out', pos: 'phr. verb', level: 'C2', pron: '', def: 'To endure and survive a difficult period.', ex: 'Most well-managed firms weathered out the recession without major layoffs.' },
+      { word: 'Hone in on', pos: 'phr. verb', level: 'C2', pron: '', def: 'To focus closely or zero in on a particular target.', ex: 'The research finally honed in on a single gene responsible for the trait.' },
+
+      /* ===== ACADEMIC & EVERYDAY COLLOCATIONS ===== */
+      { word: 'Draw a conclusion', pos: 'collocation', level: 'C1', pron: '', def: 'To reach a logical inference based on evidence.', ex: 'It is too early to draw any firm conclusions from the preliminary data.' },
+      { word: 'Draw a distinction', pos: 'collocation', level: 'C1', pron: '', def: 'To point out the difference between two things.', ex: 'The author draws a sharp distinction between persuasion and manipulation.' },
+      { word: 'Strike a balance', pos: 'collocation', level: 'C1', pron: '', def: 'To find a satisfactory middle ground between competing demands.', ex: 'New parents constantly try to strike a balance between work and family.' },
+      { word: 'Pose a threat', pos: 'collocation', level: 'C1', pron: '', def: 'To present a danger or risk.', ex: 'The new variant does not appear to pose a significant threat to the vaccinated.' },
+      { word: 'Raise a concern', pos: 'collocation', level: 'C1', pron: '', def: 'To formally mention something worrying.', ex: 'Several parents raised concerns about the new attendance policy at the meeting.' },
+      { word: 'Reach a consensus', pos: 'collocation', level: 'C1', pron: '', def: 'To arrive at a general agreement.', ex: 'After two days of debate, the panel finally reached a consensus on the wording.' },
+      { word: 'Shed light on', pos: 'collocation', level: 'C1', pron: '', def: 'To make something clearer; to provide insight into.', ex: 'The newly released archive sheds light on a previously obscure period of his career.' },
+      { word: 'Make headway', pos: 'collocation', level: 'C1', pron: '', def: 'To make progress, especially against opposition or difficulty.', ex: 'We\u2019re finally making headway on the merger after months of stalled talks.' },
+      { word: 'Take stock', pos: 'collocation', level: 'C2', pron: '', def: 'To pause and review a situation carefully.', ex: 'The new year is a natural moment to take stock of where we\u2019ve been.' },
+      { word: 'Bear fruit', pos: 'collocation', level: 'C2', pron: '', def: 'To yield positive results, often after a long effort.', ex: 'Her years of patient research finally began to bear fruit in her late thirties.' },
+      { word: 'Cast doubt on', pos: 'collocation', level: 'C1', pron: '', def: 'To make something seem less certain or trustworthy.', ex: 'The new study casts serious doubt on a decades-old assumption.' },
+      { word: 'Pay tribute to', pos: 'collocation', level: 'C1', pron: '', def: 'To express respect or admiration, often publicly.', ex: 'In her acceptance speech, she paid tribute to the mentor who first hired her.' },
+      { word: 'Lend weight to', pos: 'collocation', level: 'C2', pron: '', def: 'To support an argument or claim by adding credibility.', ex: 'The minister\u2019s endorsement lent considerable weight to the campaign.' },
+      { word: 'Set a precedent', pos: 'collocation', level: 'C2', pron: '', def: 'To establish an example or rule that will guide later actions.', ex: 'The court\u2019s ruling sets an important precedent for similar cases.' },
+      { word: 'Tip the scales', pos: 'collocation', level: 'C2', pron: '', def: 'To decisively influence the outcome of something.', ex: 'A late and unexpected endorsement may yet tip the scales in her favor.' },
+
+      /* ===== FORMAL DISCOURSE MARKERS ===== */
+      { word: 'By the same token', pos: 'phrase', level: 'C2', pron: '', def: 'In a similar manner; following the same logic.', ex: 'If we punish failure too harshly, by the same token we discourage anyone from trying anything bold.' },
+      { word: 'By no means', pos: 'phrase', level: 'C1', pron: '', def: 'Not at all; certainly not.', ex: 'The matter is by no means settled, despite the cheerful press release.' },
+      { word: 'For all intents and purposes', pos: 'phrase', level: 'C2', pron: '', def: 'In every practical sense; effectively.', ex: 'For all intents and purposes, the project ended when the lead engineer resigned.' },
+      { word: 'Granted that', pos: 'phrase', level: 'C2', pron: '', def: 'Acknowledged that; admitting that.', ex: 'Granted that the budget is tight, we still need to invest in long-term infrastructure.' },
+      { word: 'Insofar as', pos: 'phrase', level: 'C2', pron: '', def: 'To the extent that.', ex: 'The findings are useful insofar as they apply to small, urban populations.' },
+      { word: 'Notwithstanding', pos: 'prep.', level: 'C2', pron: 'not-with-STAN-ding', def: 'In spite of; despite.', ex: 'Notwithstanding the early setbacks, the team finished ahead of schedule.' },
+      { word: 'Suffice it to say', pos: 'phrase', level: 'C2', pron: '', def: 'It is enough to say (without going into detail).', ex: 'Suffice it to say, the meeting did not go as either of us had hoped.' },
+      { word: 'To be sure', pos: 'phrase', level: 'C2', pron: '', def: 'Admittedly; it is true that.', ex: 'To be sure, the policy has its critics \u2014 but the evidence so far is encouraging.' },
+      { word: 'With that in mind', pos: 'phrase', level: 'C1', pron: '', def: 'Taking the previous point into account.', ex: 'With that in mind, let\u2019s look at how the proposal might actually be implemented.' },
+      { word: 'In stark contrast', pos: 'phrase', level: 'C1', pron: '', def: 'In clear and striking opposition (to something).', ex: 'In stark contrast to last year, sales have grown in every region.' },
+      { word: 'Be that as it may', pos: 'phrase', level: 'C2', pron: '', def: 'Despite that; even so.', ex: 'The criticism is fair. Be that as it may, we must move forward with what we have.' },
+      { word: 'In the wake of', pos: 'phrase', level: 'C1', pron: '', def: 'Following something, often as a consequence.', ex: 'In the wake of the resignation, two senior advisors also stepped down.' },
+      { word: 'Time and again', pos: 'phrase', level: 'C1', pron: '', def: 'Repeatedly; on many occasions.', ex: 'Time and again, the simplest solution turns out to be the most durable.' },
+      { word: 'To put it mildly', pos: 'phrase', level: 'C1', pron: '', def: 'Used to introduce an understatement.', ex: 'The reception was, to put it mildly, less enthusiastic than expected.' },
+      { word: 'At first glance', pos: 'phrase', level: 'B2', pron: '', def: 'Upon initial inspection; before closer examination.', ex: 'At first glance the figures look healthy, but a deeper look reveals concerns.' },
+
+      /* ===== IDIOMS & EXPRESSIONS WITH CURRENT CURRENCY ===== */
+      { word: 'Pave the way for', pos: 'phrase', level: 'C1', pron: '', def: 'To create the conditions that make something possible.', ex: 'Her early research paved the way for an entire generation of climate models.' },
+      { word: 'Lend credence to', pos: 'phrase', level: 'C2', pron: '', def: 'To make something seem more believable or credible.', ex: 'The leaked memo lends credence to long-standing rumors about the buyout.' },
+      { word: 'Hold sway', pos: 'phrase', level: 'C2', pron: '', def: 'To have great power or influence.', ex: 'Despite the new leadership, the old guard still holds considerable sway in the boardroom.' },
+      { word: 'A double-edged sword', pos: 'phrase', level: 'C1', pron: '', def: 'Something that has both significant advantages and disadvantages.', ex: 'Working from home is a double-edged sword: more flexibility, but also blurred boundaries.' },
+      { word: 'The lion\u2019s share', pos: 'phrase', level: 'C1', pron: '', def: 'The largest portion of something.', ex: 'Marketing took the lion\u2019s share of the budget this year.' },
+      { word: 'Turn a blind eye', pos: 'phrase', level: 'C1', pron: '', def: 'To deliberately ignore something one knows is wrong.', ex: 'For years, regulators turned a blind eye to the practice.' },
+      { word: 'Take with a grain of salt', pos: 'phrase', level: 'C1', pron: '', def: 'To regard a claim with healthy skepticism.', ex: 'Reviews on that website should be taken with a grain of salt.' },
+      { word: 'Move the needle', pos: 'phrase', level: 'C2', pron: '', def: 'To produce a noticeable change in a situation.', ex: 'Small wellness perks rarely move the needle on retention.' },
+      { word: 'A blessing in disguise', pos: 'phrase', level: 'B2', pron: '', def: 'Something that seems unfortunate but turns out to be beneficial.', ex: 'Losing that job was a blessing in disguise \u2014 it pushed me to start the consultancy.' },
+      { word: 'Off the top of my head', pos: 'phrase', level: 'B2', pron: '', def: 'Without preparation or careful thought.', ex: 'Off the top of my head, I\u2019d guess the cost is around twelve thousand.' },
+      { word: 'Call it a day', pos: 'phrase', level: 'B2', pron: '', def: 'To stop working, especially because you have done enough.', ex: 'Let\u2019s call it a day and pick this up again on Monday morning.' },
+      { word: 'Rock the boat', pos: 'phrase', level: 'C1', pron: '', def: 'To disturb a situation that is otherwise stable; to cause trouble.', ex: 'I didn\u2019t want to rock the boat in my first week on the job.' },
+      { word: 'Go against the grain', pos: 'phrase', level: 'C1', pron: '', def: 'To act in a way contrary to one\u2019s nature, beliefs, or convention.', ex: 'Pricing the product so low went against the grain for everyone in finance.' },
+      { word: 'Up to scratch', pos: 'phrase', level: 'C1', pron: '', def: 'Meeting the required standard.', ex: 'The first draft simply isn\u2019t up to scratch; we\u2019ll need another revision.' },
+      { word: 'Beat around the bush', pos: 'phrase', level: 'C1', pron: '', def: 'To avoid getting to the point of a discussion.', ex: 'Stop beating around the bush and tell me whether you\u2019re leaving or not.' },
+
+      /* ===== CONNELLY THRILLERS — LAPD / FBI ACRONYMS =====
+         Sourced from Michael Connelly's official acronyms list at michaelconnelly.com.
+         Use them just as Bosch, Ballard, and Haller hear them — without explanation. */
+      { word: 'RHD', pos: 'acronym', level: 'C2', tag: 'Connelly', pron: 'R-H-D', def: 'Robbery-Homicide Division \u2014 the elite LAPD unit that handles the city\u2019s most complex murder and robbery cases. Bosch\u2019s home for much of the series.', ex: '"RHD\u2019s taking the case." That single sentence told everyone in the room the stakes had just gone up.' },
+      { word: 'OIS', pos: 'acronym', level: 'C2', tag: 'Connelly', pron: 'O-I-S', def: 'Officer-Involved Shooting \u2014 any incident in which a police officer discharges a firearm. Triggers an automatic IAD investigation.', ex: 'After the OIS, Bosch was pulled off the case and placed on administrative leave.' },
+      { word: 'IAD', pos: 'acronym', level: 'C2', tag: 'Connelly', pron: 'I-A-D', def: 'Internal Affairs Division \u2014 the LAPD unit that investigates police misconduct. Career-ending if they decide against you.', ex: 'IAD had been waiting for him to slip up for years.' },
+      { word: 'DDA', pos: 'acronym', level: 'C2', tag: 'Connelly', pron: 'D-D-A', def: 'Deputy District Attorney \u2014 the prosecutor handling a specific case in court.', ex: 'The DDA wanted a confession before he\u2019d agree to file murder one.' },
+      { word: 'CI', pos: 'acronym', level: 'C1', tag: 'Connelly', pron: 'C-I', def: 'Confidential Informant \u2014 a person providing information about criminal activity, identity protected.', ex: 'Bosch had cultivated the CI for nearly two years before the case finally broke.' },
+      { word: '187', pos: 'code', level: 'C2', tag: 'Connelly', pron: 'one-eighty-seven', def: 'California Penal Code section for murder. Used as shorthand on the radio and in casual cop talk.', ex: 'Dispatch crackled to life: "We\u2019ve got a one-eighty-seven on Mulholland."' },
+      { word: 'BOLO', pos: 'acronym', level: 'C2', tag: 'Connelly', pron: 'BOH-loh', def: 'Be On the Lookout \u2014 a department-wide alert to watch for a particular person or vehicle.', ex: 'Within twenty minutes a BOLO had gone out on the gray sedan.' },
+      { word: 'UNSUB', pos: 'acronym', level: 'C2', tag: 'Connelly', pron: 'UN-sub', def: 'Unknown Subject \u2014 the term for an unidentified suspect, especially in profiling and FBI cases.', ex: 'The profile suggested the UNSUB was a white male in his thirties with military training.' },
+      { word: 'ME', pos: 'acronym', level: 'C1', tag: 'Connelly', pron: 'M-E', def: 'Medical Examiner \u2014 the doctor who performs autopsies and determines cause of death.', ex: 'The ME called him at six in the morning to confirm what he already suspected.' },
+      { word: 'TOD', pos: 'acronym', level: 'C2', tag: 'Connelly', pron: 'T-O-D', def: 'Time of Death \u2014 the official estimate of when the victim died.', ex: 'TOD was placed somewhere between two and four in the morning.' },
+      { word: 'DB', pos: 'acronym', level: 'C2', tag: 'Connelly', pron: 'D-B', def: 'Dead Body \u2014 cop shorthand for a corpse at a crime scene.', ex: 'They had three DBs in three days and the lieutenant was already calling for help.' },
+      { word: 'GSR', pos: 'acronym', level: 'C2', tag: 'Connelly', pron: 'G-S-R', def: 'Gunshot Residue \u2014 microscopic particles left on the hands of someone who has fired a weapon.', ex: 'Tests showed no GSR on either of the victim\u2019s hands, ruling out suicide.' },
+      { word: 'GBI', pos: 'acronym', level: 'C2', tag: 'Connelly', pron: 'G-B-I', def: 'Great Bodily Injury \u2014 a legal term for serious physical harm; an enhancement to charges.', ex: 'They added the GBI charge to the indictment, which would mean a longer sentence.' },
+      { word: 'ADW', pos: 'acronym', level: 'C2', tag: 'Connelly', pron: 'A-D-W', def: 'Assault with a Deadly Weapon \u2014 a serious felony charge.', ex: 'He was looking at an ADW conviction with a strike on his record.' },
+      { word: 'PC', pos: 'acronym', level: 'C2', tag: 'Connelly', pron: 'P-C', def: 'Probable Cause \u2014 the legal standard required to make an arrest or obtain a search warrant.', ex: 'Without PC, they couldn\u2019t even knock on the suspect\u2019s door.' },
+      { word: 'AFIS', pos: 'acronym', level: 'C2', tag: 'Connelly', pron: 'AY-fis', def: 'Automated Fingerprint Identification System \u2014 the national database used to match prints from crime scenes.', ex: 'The print came back from AFIS with a hit on a parolee from Bakersfield.' },
+      { word: 'CODIS', pos: 'acronym', level: 'C2', tag: 'Connelly', pron: 'KOH-dis', def: 'Combined DNA Index System \u2014 the FBI\u2019s national DNA database.', ex: 'They ran the sample through CODIS and got a familial match within hours.' },
+      { word: 'NCIC', pos: 'acronym', level: 'C2', tag: 'Connelly', pron: 'EN-sik', def: 'National Crime Information Center \u2014 the FBI database of warrants, missing persons, and stolen property.', ex: 'A quick NCIC check showed three outstanding warrants under that name.' },
+      { word: 'VICAP', pos: 'acronym', level: 'C2', tag: 'Connelly', pron: 'VY-kap', def: 'Violent Criminal Apprehension Program \u2014 the FBI database for tracking serial offenders.', ex: 'The case had all the markers VICAP would flag as a possible serial.' },
+      { word: 'CHP', pos: 'acronym', level: 'C2', tag: 'Connelly', pron: 'C-H-P', def: 'California Highway Patrol \u2014 the state\u2019s traffic and highway police force.', ex: 'CHP had closed both lanes of the 405 by the time they arrived.' },
+      { word: 'DEA', pos: 'acronym', level: 'C1', tag: 'Connelly', pron: 'D-E-A', def: 'Drug Enforcement Administration \u2014 the federal agency targeting drug trafficking.', ex: 'The DEA had been working the same dealer for eighteen months and weren\u2019t about to give him up.' },
+      { word: 'ATF', pos: 'acronym', level: 'C2', tag: 'Connelly', pron: 'A-T-F', def: 'Bureau of Alcohol, Tobacco, Firearms \u2014 the federal agency handling firearms and explosives crimes.', ex: 'ATF traced the gun back through three owners to a pawnshop in Glendale.' },
+      { word: 'Code Three', pos: 'phrase', level: 'C2', tag: 'Connelly', pron: '', def: 'Lights and sirens; emergency response. The fastest a patrol car can go.', ex: 'They went Code Three to the address, but they were already too late.' },
+      { word: 'Code Seven', pos: 'phrase', level: 'C2', tag: 'Connelly', pron: '', def: 'Out of service \u2014 typically a meal or break. Bosch is famously hard to reach when he\u2019s Code Seven.', ex: '"He\u2019s Code Seven," the desk sergeant said. "Try him again in an hour."' },
+      { word: 'Ten-Seven', pos: 'phrase', level: 'C2', tag: 'Connelly', pron: '', def: 'Out of service for the day; off duty; gone home.', ex: 'By the time the call came in, half the squad had already gone Ten-Seven.' },
+      { word: 'LWP', pos: 'acronym', level: 'C2', tag: 'Connelly', pron: 'L-W-P', def: 'Life Without Parole \u2014 the maximum sentence short of death in California.', ex: 'They offered him LWP if he gave up the location of the second body.' },
+      { word: 'ROR', pos: 'acronym', level: 'C2', tag: 'Connelly', pron: 'R-O-R', def: 'Released on Own Recognizance \u2014 freed pending trial without posting bail.', ex: 'The judge released him ROR over the prosecutor\u2019s strenuous objection.' },
+      { word: '5150', pos: 'code', level: 'C2', tag: 'Connelly', pron: 'fifty-one fifty', def: 'California code for a person deemed mentally unstable and a danger to themselves or others; an involuntary 72-hour psychiatric hold.', ex: 'The patrol officers wrote it up as a 5150 and called for an ambulance.' },
+      { word: '51 Reports', pos: 'phrase', level: 'C2', tag: 'Connelly', pron: 'fifty-ones', def: 'Investigative chronology reports kept by detectives \u2014 the running narrative of an active case.', ex: 'Bosch updated his 51s every night before he locked up.' },
+
+      /* ===== POLICE PROCEDURAL: VERBS, NOUNS, JARGON ===== */
+      { word: 'Murder book', pos: 'noun', level: 'C2', tag: 'Connelly', pron: '', def: 'The blue binder containing every report, photo, and interview from a homicide investigation. The detective\u2019s case file.', ex: 'He pulled the murder book off the shelf and opened it to the page he\u2019d been thinking about all night.' },
+      { word: 'Cold case', pos: 'noun', level: 'B2', tag: 'Connelly', pron: '', def: 'An unsolved crime, usually old, that is no longer being actively investigated. Bosch\u2019s specialty in his later career.', ex: 'The cold case had been gathering dust for sixteen years before it landed on his desk.' },
+      { word: 'Canvass', pos: 'verb', level: 'C2', tag: 'Connelly', pron: 'KAN-vus', def: 'To systematically question residents or businesses in a neighborhood for witnesses or information.', ex: 'They spent two days canvassing every apartment within a four-block radius.' },
+      { word: 'Stake out', pos: 'verb', level: 'C1', tag: 'Connelly', pron: '', def: 'To keep a location or person under continuous covert surveillance.', ex: 'They staked out the warehouse for three nights before anyone arrived.' },
+      { word: 'Perp', pos: 'noun', level: 'C2', tag: 'Connelly', pron: '', def: 'Short for "perpetrator." Cop slang for the person who committed the crime.', ex: 'Two witnesses placed the perp at the scene minutes before the shots were fired.' },
+      { word: 'Suspect', pos: 'noun', level: 'B2', tag: 'Connelly', pron: 'SUS-pekt', def: 'A person believed to have committed a crime but not yet charged.', ex: 'He had a person of interest, but not yet a suspect he could name.' },
+      { word: 'Witness', pos: 'noun', level: 'B1', tag: 'Connelly', pron: '', def: 'Someone who saw an event or has information about a crime.', ex: 'The only witness was a delivery driver who\u2019d been parked across the street.' },
+      { word: 'Lead', pos: 'noun', level: 'B2', tag: 'Connelly', pron: '', def: 'A piece of information or clue that may help solve a case.', ex: 'They were running out of leads and the chief was running out of patience.' },
+      { word: 'Tail', pos: 'verb', level: 'C1', tag: 'Connelly', pron: '', def: 'To follow someone secretly, usually in a vehicle.', ex: 'He noticed he was being tailed somewhere around La Brea.' },
+      { word: 'Run the plate', pos: 'phrase', level: 'C2', tag: 'Connelly', pron: '', def: 'To check a vehicle\u2019s license plate against the DMV database.', ex: 'He ran the plate from his car \u2014 the truck was registered to a shell company.' },
+      { word: 'Pull a sheet', pos: 'phrase', level: 'C2', tag: 'Connelly', pron: '', def: 'To request a person\u2019s prior criminal record.', ex: 'He pulled the suspect\u2019s sheet \u2014 three priors, all narcotics.' },
+      { word: 'Ligature', pos: 'noun', level: 'C2', tag: 'Connelly', pron: 'LIG-uh-chur', def: 'Anything used to bind or strangle a victim. A clinical, forensic word.', ex: 'The ligature marks on the victim\u2019s neck suggested a thin cord.' },
+      { word: 'Tunnel rat', pos: 'noun', level: 'C2', tag: 'Connelly', pron: '', def: 'A Vietnam-era US soldier trained to clear underground enemy tunnels. Bosch\u2019s wartime role, central to his character.', ex: 'He had been a tunnel rat in \u201969, and the dark places never quite stopped calling him.' },
+      { word: 'Cuff', pos: 'verb', level: 'B2', tag: 'Connelly', pron: '', def: 'To handcuff a suspect.', ex: 'They cuffed him at the door without a word of resistance.' },
+      { word: 'Read someone their rights', pos: 'phrase', level: 'C1', tag: 'Connelly', pron: '', def: 'To recite the Miranda warning at the moment of arrest, beginning "You have the right to remain silent..."', ex: 'He read the suspect his rights slowly, watching for any flicker of recognition.' },
+
+      /* ===== LEGAL / COURTROOM (Mickey Haller, Lincoln Lawyer) ===== */
+      { word: 'Arraignment', pos: 'noun', level: 'C2', tag: 'Connelly', pron: 'uh-RAYN-munt', def: 'A formal court hearing where a defendant is read the charges and enters a plea.', ex: 'The arraignment was set for nine the next morning.' },
+      { word: 'Indictment', pos: 'noun', level: 'C1', tag: 'Connelly', pron: 'in-DYT-munt', def: 'A formal charge or accusation of a serious crime, returned by a grand jury.', ex: 'The grand jury handed down the indictment after only two hours of deliberation.' },
+      { word: 'Deposition', pos: 'noun', level: 'C1', tag: 'Connelly', pron: 'dep-uh-ZISH-un', def: 'Sworn out-of-court testimony recorded for use at trial.', ex: 'Haller spent the morning taking the doctor\u2019s deposition.' },
+      { word: 'Voir dire', pos: 'noun', level: 'C2', tag: 'Connelly', pron: 'vwar-DEER', def: 'The process of questioning prospective jurors to determine their suitability.', ex: 'Voir dire ran into a second day, with both sides striking jurors aggressively.' },
+      { word: 'Plea bargain', pos: 'noun', level: 'C1', tag: 'Connelly', pron: '', def: 'A negotiated agreement where a defendant pleads guilty to a lesser charge in exchange for leniency.', ex: 'The DA offered a plea bargain that took the death penalty off the table.' },
+      { word: 'Motion to suppress', pos: 'phrase', level: 'C2', tag: 'Connelly', pron: '', def: 'A defense request to exclude certain evidence from trial, typically for being illegally obtained.', ex: 'Haller filed a motion to suppress the gun, arguing the search had been unlawful.' },
+      { word: 'Discovery', pos: 'noun', level: 'C1', tag: 'Connelly', pron: 'dis-KUV-er-ee', def: 'The pretrial process by which each side must share its evidence with the other.', ex: 'The prosecution had buried the witness statement in a thousand pages of discovery.' },
+      { word: 'Hung jury', pos: 'noun', level: 'C1', tag: 'Connelly', pron: '', def: 'A jury unable to reach a unanimous verdict, resulting in a mistrial.', ex: 'After four days of deliberation, they came back hung, eleven to one.' },
+      { word: 'Mistrial', pos: 'noun', level: 'C1', tag: 'Connelly', pron: 'MIS-tryul', def: 'A trial that has been declared invalid before a verdict is reached.', ex: 'The judge declared a mistrial after the witness blurted out the inadmissible evidence.' },
+      { word: 'Subpoena', pos: 'noun', level: 'C1', tag: 'Connelly', pron: 'suh-PEE-nuh', def: 'A legal order requiring a person to appear in court or produce documents.', ex: 'The subpoena landed on his desk Friday afternoon, ruining his weekend.' },
+      { word: 'Counsel', pos: 'noun', level: 'C1', tag: 'Connelly', pron: 'KOWN-sul', def: 'A lawyer or legal advisor; also used as a form of address in court.', ex: '"Approach the bench, counsel." Haller stood and walked forward.' },
+      { word: 'Hearsay', pos: 'noun', level: 'C1', tag: 'Connelly', pron: 'HEER-say', def: 'Second-hand testimony \u2014 typically inadmissible as evidence in court.', ex: 'The prosecutor objected on hearsay, and the judge sustained.' },
+      { word: 'Beyond a reasonable doubt', pos: 'phrase', level: 'C1', tag: 'Connelly', pron: '', def: 'The standard of proof required for criminal conviction in U.S. courts.', ex: 'Haller hammered on the same theme: the case fell short of beyond a reasonable doubt.' },
+      { word: 'Throw the book at', pos: 'phrase', level: 'C1', tag: 'Connelly', pron: '', def: 'To impose the maximum possible legal penalty.', ex: 'After the second offense, the judge threw the book at him.' },
+      { word: 'Public defender', pos: 'noun', level: 'B2', tag: 'Connelly', pron: '', def: 'A government-appointed lawyer for defendants who cannot afford private counsel.', ex: 'Haller had started his career as a public defender before going private.' },
+
+      /* ===== FORENSIC & MEDICAL EXAMINER ===== */
+      { word: 'Postmortem', pos: 'noun/adj.', level: 'C1', tag: 'Connelly', pron: 'pohst-MOR-tum', def: 'Examination of a body after death; an autopsy. Also: occurring after death.', ex: 'Postmortem bruising suggested the body had been moved several hours after death.' },
+      { word: 'Autopsy', pos: 'noun', level: 'C1', tag: 'Connelly', pron: 'AW-top-see', def: 'A medical examination of a corpse to determine cause of death.', ex: 'The autopsy was scheduled for Monday morning.' },
+      { word: 'Cause of death', pos: 'phrase', level: 'B2', tag: 'Connelly', pron: '', def: 'The medical reason a person died \u2014 e.g., gunshot wound, asphyxiation, blunt-force trauma.', ex: 'Cause of death was a single gunshot wound to the back of the head.' },
+      { word: 'Manner of death', pos: 'phrase', level: 'C2', tag: 'Connelly', pron: '', def: 'The classification of a death: natural, accident, suicide, homicide, or undetermined.', ex: 'The ME ruled the manner of death as homicide, not suicide as first reported.' },
+      { word: 'Blunt-force trauma', pos: 'phrase', level: 'C1', tag: 'Connelly', pron: '', def: 'Injury caused by impact with a blunt object rather than a sharp or piercing one.', ex: 'Multiple injuries consistent with blunt-force trauma to the skull.' },
+      { word: 'Exsanguination', pos: 'noun', level: 'C2', tag: 'Connelly', pron: 'eks-sang-gwi-NAY-shun', def: 'Death by severe blood loss.', ex: 'Cause of death: exsanguination from a single deep laceration to the femoral artery.' },
+      { word: 'Lividity', pos: 'noun', level: 'C2', tag: 'Connelly', pron: 'li-VID-i-tee', def: 'The pooling of blood in the lowest parts of a corpse, used to estimate time and position of death.', ex: 'Lividity in the back and shoulders meant the body had been on its back for hours after death.' },
+      { word: 'Rigor mortis', pos: 'noun', level: 'C2', tag: 'Connelly', pron: 'RIG-er MOR-tis', def: 'The post-death stiffening of muscles, used to estimate time of death.', ex: 'Rigor was already setting in by the time the criminalist arrived.' },
+      { word: 'Decedent', pos: 'noun', level: 'C2', tag: 'Connelly', pron: 'di-SEE-dunt', def: 'A formal/legal term for a deceased person.', ex: 'The decedent was identified through dental records.' },
+      { word: 'Trace evidence', pos: 'noun', level: 'C2', tag: 'Connelly', pron: '', def: 'Small physical material \u2014 fibers, hair, paint flecks \u2014 transferred between people, objects, and environments.', ex: 'Trace evidence on the victim\u2019s coat suggested he had been in a car with a smoker.' },
+
+      /* ===== HARDBOILED CRIME-FICTION IDIOM ===== */
+      { word: 'Make somebody', pos: 'phrase', level: 'C2', tag: 'Connelly', pron: '', def: 'To recognize or identify someone, often as a cop or as a person of interest.', ex: 'The dealer made him as a cop the moment he walked in.' },
+      { word: 'Turn somebody', pos: 'phrase', level: 'C2', tag: 'Connelly', pron: '', def: 'To convince a witness or low-level criminal to inform on someone higher up.', ex: 'If they could turn the driver, they\u2019d have a path all the way to the boss.' },
+      { word: 'On the take', pos: 'phrase', level: 'C2', tag: 'Connelly', pron: '', def: 'Accepting bribes; corrupt.', ex: 'There were rumors that half the desk sergeants in that division had been on the take.' },
+      { word: 'Walk somebody back', pos: 'phrase', level: 'C2', tag: 'Connelly', pron: '', def: 'To talk a person down from anger, panic, or a confession.', ex: 'Haller walked his client back from the brink of saying something he\u2019d regret.' },
+      { word: 'Lawyer up', pos: 'phrase', level: 'C2', tag: 'Connelly', pron: '', def: 'To invoke one\u2019s right to an attorney, ending police questioning.', ex: 'Once he lawyered up, the interview was over.' },
+      { word: 'Drop a dime', pos: 'phrase', level: 'C2', tag: 'Connelly', pron: '', def: 'To inform on someone to the police; originally referring to a payphone call.', ex: 'Somebody had dropped a dime on the operation, and Bosch wanted to know who.' },
+      { word: 'Off the record', pos: 'phrase', level: 'B2', tag: 'Connelly', pron: '', def: 'Said unofficially, with the understanding that it won\u2019t be reported or used in court.', ex: '"Off the record," she said, leaning forward, "the case is not what it appears."' },
+      { word: 'Open and shut', pos: 'phrase', level: 'C1', tag: 'Connelly', pron: '', def: 'A case that is straightforward and easily proved.', ex: 'It looked like an open-and-shut suicide \u2014 but Bosch had stopped trusting easy cases years ago.' },
+      { word: 'Working a case', pos: 'phrase', level: 'B2', tag: 'Connelly', pron: '', def: 'Actively investigating a particular crime.', ex: 'He\u2019d been working the case for six months without a single useful break.' },
+      { word: 'A bad cop', pos: 'phrase', level: 'B2', tag: 'Connelly', pron: '', def: 'A corrupt or brutal police officer.', ex: 'There was no good way to spend the morning if you were the one bringing in a bad cop.' },
+      { word: 'Take the fall', pos: 'phrase', level: 'C1', tag: 'Connelly', pron: '', def: 'To accept blame or punishment, especially for someone else.', ex: 'They needed someone to take the fall, and the rookie was the easiest target.' },
+      { word: 'Have a tail on', pos: 'phrase', level: 'C2', tag: 'Connelly', pron: '', def: 'To have a person under physical surveillance.', ex: 'The Feds had had a tail on him for nearly a month before he noticed.' },
+      { word: 'Burn a source', pos: 'phrase', level: 'C2', tag: 'Connelly', pron: '', def: 'To expose a confidential informant, ending their usefulness and possibly endangering them.', ex: 'A leak from City Hall had burned the source they\u2019d spent two years building.' },
+      { word: 'Cleared by arrest', pos: 'phrase', level: 'C2', tag: 'Connelly', pron: '', def: 'Police status indicating a case has been solved by an arrest \u2014 even if the suspect isn\u2019t convicted.', ex: 'The case had been cleared by arrest, but the conviction never came.' },
+
+      /* ===== LOS ANGELES GEOGRAPHY & CULTURE ===== */
+      { word: 'The Valley', pos: 'noun', level: 'C1', tag: 'Connelly', pron: '', def: 'The San Fernando Valley \u2014 the suburban region north of the Hollywood Hills, distinct from "the city side."', ex: '"He lives somewhere out in the Valley," Edgar said with the faintest curl of disdain.' },
+      { word: 'Mulholland', pos: 'noun', level: 'C2', tag: 'Connelly', pron: 'mul-HOL-und', def: 'Mulholland Drive \u2014 the winding ridge road along the Hollywood Hills. Bosch lives just off it.', ex: 'He drove home along Mulholland with the windows down.' },
+      { word: 'Skid Row', pos: 'noun', level: 'C1', tag: 'Connelly', pron: '', def: 'The downtown LA district notorious for homelessness, addiction, and street crime.', ex: 'The witness was last seen walking south into Skid Row.' },
+      { word: 'The 405', pos: 'noun', level: 'C2', tag: 'Connelly', pron: 'four-oh-five', def: 'The San Diego Freeway, one of the most congested stretches of highway in the country. A perpetual source of LA misery.', ex: 'The 405 was at a standstill from the airport all the way to Sherman Oaks.' },
+      { word: 'The Strip', pos: 'noun', level: 'C2', tag: 'Connelly', pron: '', def: 'The Sunset Strip \u2014 a famous mile-and-a-half stretch of Sunset Boulevard known for nightlife and the music scene.', ex: 'The club was halfway up the Strip, between two restaurants neither of them could afford.' },
+      { word: 'The Westside', pos: 'noun', level: 'C2', tag: 'Connelly', pron: '', def: 'The wealthy western neighborhoods of LA \u2014 Beverly Hills, Brentwood, Santa Monica.', ex: 'The lawyer\u2019s office was on the Westside, which told Bosch everything about the retainer.' },
+      { word: 'South Central', pos: 'noun', level: 'C2', tag: 'Connelly', pron: '', def: 'A historically Black, working-class section of South Los Angeles, often referenced in the books\u2019 racial and policing tensions.', ex: 'He had grown up in South Central before the riots changed everything.' },
+      { word: 'Hollywood Station', pos: 'noun', level: 'C2', tag: 'Connelly', pron: '', def: 'The LAPD division that polices Hollywood. Bosch and Ballard both work cases out of it.', ex: 'Ballard worked the late show out of Hollywood Station.' },
+      { word: 'The late show', pos: 'phrase', level: 'C2', tag: 'Connelly', pron: '', def: 'LAPD slang for the overnight shift. The title of the first Renée Ballard novel.', ex: 'She\u2019d worked the late show for three years and was beginning to forget what daylight felt like.' },
+      { word: 'Parker Center', pos: 'noun', level: 'C2', tag: 'Connelly', pron: '', def: 'The former LAPD headquarters in downtown LA, demolished in 2009. Replaced by the PAB but still referenced in older books.', ex: 'The case file had spent twenty years in a basement at Parker Center.' }
+    ];
+    const SEED_VERSION = 4;
+
+    /* ===== SRS engine (simplified SM-2) ===== */
+    const DAY_MS = 86400000;
+    function buildCard(seed, idx) {
+      return Object.assign({
+        id: 'c_' + idx + '_' + Math.random().toString(36).slice(2, 8),
+        ef: 2.5, interval: 0, reps: 0,
+        nextReview: Date.now(), lastReview: null, history: []
+      }, seed);
+    }
+    function reviewCard(card, q) {
+      let ef = card.ef, interval = card.interval, reps = card.reps;
+      if (q < 3) { reps = 0; interval = 1; }
+      else {
+        if (reps === 0) interval = 1;
+        else if (reps === 1) interval = 6;
+        else interval = Math.max(1, Math.round(interval * ef));
+        reps += 1;
+      }
+      ef = Math.max(1.3, ef + 0.1 - (5 - q) * (0.08 + (5 - q) * 0.02));
+      const now = Date.now();
+      return Object.assign({}, card, {
+        ef: +ef.toFixed(2), interval: interval, reps: reps,
+        lastReview: now, nextReview: now + interval * DAY_MS,
+        history: (card.history || []).concat([{ d: now, q: q }]).slice(-30)
+      });
+    }
+    const dueNow = (cards) => cards
+      .filter(c => c.nextReview <= Date.now())
+      .sort((a, b) => a.nextReview - b.nextReview);
+
+    /* ===== Storage ===== */
+    const STORE_KEY = 'lexicon:cards:v1';
+    const SEED_VERSION_KEY = 'lexicon:seedVersion:v1';
+    function loadStore() {
+      try { const raw = localStorage.getItem(STORE_KEY); if (raw) return JSON.parse(raw); }
+      catch (_) {}
+      return null;
+    }
+    function saveStore(cards) {
+      try { localStorage.setItem(STORE_KEY, JSON.stringify(cards)); }
+      catch (e) { console.error('save failed', e); }
+    }
+    function loadSeedVersion() {
+      try { const v = localStorage.getItem(SEED_VERSION_KEY); return v ? parseInt(v, 10) : 1; }
+      catch (_) { return 1; }
+    }
+    function saveSeedVersion(v) {
+      try { localStorage.setItem(SEED_VERSION_KEY, String(v)); }
+      catch (_) {}
+    }
+    /* Non-destructive merge: add SEED entries whose word isn't already in the user's library.
+       Existing cards (and their review progress) are left untouched. */
+    function mergeNewSeeds(existingCards) {
+      const have = {};
+      existingCards.forEach((c) => { have[c.word.toLowerCase().trim()] = true; });
+      const additions = [];
+      SEED.forEach((s, i) => {
+        if (!have[s.word.toLowerCase().trim()]) additions.push(buildCard(s, existingCards.length + i));
+      });
+      return existingCards.concat(additions);
+    }
+
+    /* ===== Util ===== */
+    function speak(text) {
+      if (!text || !window.speechSynthesis) return;
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.rate = 0.9;
+      window.speechSynthesis.speak(u);
+    }
+    function fmtDue(ts) {
+      const diff = ts - Date.now();
+      if (diff <= 0) return 'due now';
+      const days = Math.round(diff / DAY_MS);
+      if (days < 1) return 'today';
+      if (days === 1) return 'tomorrow';
+      return 'in ' + days + 'd';
+    }
+    function shuffle(arr) {
+      const a = arr.slice();
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const t = a[i]; a[i] = a[j]; a[j] = t;
+      }
+      return a;
+    }
+
+    /* ===== App ===== */
+    function App() {
+      const [cards, setCards] = useState(function () {
+        const stored = loadStore();
+        const storedVersion = loadSeedVersion();
+        if (stored && Array.isArray(stored) && stored.length) {
+          if (storedVersion < SEED_VERSION) {
+            const merged = mergeNewSeeds(stored);
+            saveSeedVersion(SEED_VERSION);
+            return merged;
+          }
+          return stored;
+        }
+        // First run — load full seed
+        saveSeedVersion(SEED_VERSION);
+        return SEED.map(buildCard);
+      });
+      const [mode, setMode] = useState('flashcards');
+      const [showAdd, setShowAdd] = useState(false);
+
+      useEffect(() => { saveStore(cards); }, [cards]);
+      const due = useMemo(() => dueNow(cards), [cards]);
+
+      const updateCard = (id, q) => setCards(cs => cs.map(c => c.id === id ? reviewCard(c, q) : c));
+      const addCard    = (data)  => setCards(cs => cs.concat([buildCard(data, cs.length)]));
+      const editCard   = (id, d) => setCards(cs => cs.map(c => c.id === id ? Object.assign({}, c, d) : c));
+      const deleteCard = (id)    => setCards(cs => cs.filter(c => c.id !== id));
+      const resetProgress = () => setCards(cs => cs.map(c => Object.assign({}, c, {
+        ef: 2.5, interval: 0, reps: 0, nextReview: Date.now(), lastReview: null, history: []
+      })));
+
+      return (
+        <div className="container">
+          <Header totalCount={cards.length} dueCount={due.length} onAdd={() => setShowAdd(true)} />
+          <ModeNav mode={mode} setMode={setMode} dueCount={due.length} />
+          <main className="mt-8">
+            {mode === 'flashcards' && <Flashcards due={due} totalCards={cards.length} onReview={updateCard} />}
+            {mode === 'quiz'       && <Quiz cards={cards} />}
+            {mode === 'context'    && <ContextMode cards={cards} />}
+            {mode === 'library'    && <LibraryView cards={cards} onEdit={editCard} onDelete={deleteCard} onReset={resetProgress} onAdd={() => setShowAdd(true)} />}
+          </main>
+          {showAdd && <AddWordModal onClose={() => setShowAdd(false)} onAdd={addCard} />}
+        </div>
+      );
+    }
+
+    function Header(props) {
+      return (
+        <header className="anim-fade-up">
+          <div className="row items-end justify-between gap-4">
+            <div>
+              <div className="font-ui smallcaps text-xs" style={{ color: 'var(--ink-mute)' }}>a private dictionary</div>
+              <h1 className="font-display italic light leading-none mt-1" style={{ fontSize: 'clamp(2.5rem, 6vw, 3.75rem)', margin: '4px 0 0 0' }}>Lexicon</h1>
+              <div className="font-body italic text-base mt-2" style={{ color: 'var(--ink-soft)' }}>
+                {props.totalCount} words gathered · <span style={{ color: props.dueCount > 0 ? 'var(--accent)' : 'var(--leaf)' }}>
+                  {props.dueCount > 0 ? (props.dueCount + ' due') : 'all caught up'}
+                </span>
+              </div>
+            </div>
+            <button onClick={props.onAdd} className="btn-press font-ui smallcaps text-xs row items-center gap-2"
+              style={{ padding: '12px 16px', border: '1px solid var(--ink)', color: 'var(--ink)' }}>
+              <Plus size={14} /> add
+            </button>
+          </div>
+          <div className="rule-line mt-6" />
+          <div className="row justify-center mt-3"><span className="ornament font-display text-xl">❦</span></div>
+        </header>
+      );
+    }
+
+    function ModeNav(props) {
+      const items = [
+        { key: 'flashcards', label: 'Cards',   IconC: Layers3, badge: props.dueCount },
+        { key: 'quiz',       label: 'Quiz',    IconC: Sparkles },
+        { key: 'context',    label: 'Context', IconC: MessageQuote },
+        { key: 'library',    label: 'Library', IconC: BookMarked }
+      ];
+      return (
+        <nav className="nav-grid mt-6">
+          {items.map(function (it) {
+            const active = props.mode === it.key;
+            const IC = it.IconC;
+            return (
+              <button key={it.key} onClick={() => props.setMode(it.key)} className="btn-press relative"
+                style={{
+                  padding: '12px 8px',
+                  borderBottom: '2px solid ' + (active ? 'var(--accent)' : 'transparent'),
+                  color: active ? 'var(--accent)' : 'var(--ink-soft)',
+                  transition: 'color 0.15s'
+                }}>
+                <div className="col items-center" style={{ gap: 6 }}>
+                  <IC size={20} strokeWidth={active ? 2 : 1.5} />
+                  <span className="font-ui smallcaps" style={{ fontSize: 11 }}>{it.label}</span>
+                </div>
+                {it.badge > 0 && it.key === 'flashcards' && !active &&
+                  <span className="badge font-ui">{it.badge}</span>}
+              </button>
+            );
+          })}
+        </nav>
+      );
+    }
+
+    function Flashcards(props) {
+      const [flipped, setFlipped] = useState(false);
+      const [idx, setIdx] = useState(0);
+      const card = props.due[idx];
+      useEffect(() => { setFlipped(false); }, [idx, props.due.length]);
+
+      if (!card) {
+        return (
+          <div className="anim-fade-up text-center" style={{ padding: '64px 0' }}>
+            <div className="ornament font-display mb-4" style={{ fontSize: 48 }}>❦</div>
+            <h2 className="font-display italic text-3xl mb-3">All caught up.</h2>
+            <p className="font-body text-lg" style={{ color: 'var(--ink-soft)', maxWidth: 480, margin: '0 auto' }}>
+              {props.totalCards === 0 ? 'Add a word to begin building your private dictionary.'
+                : 'Your scheduled words have been reviewed. Return tomorrow, or browse the library to revisit favorites.'}
+            </p>
+          </div>
+        );
+      }
+
+      const handle = (q) => { props.onReview(card.id, q); setIdx(i => i + 1); };
+
+      return (
+        <div className="anim-fade-up">
+          <div className="font-ui smallcaps text-xs text-center mb-4" style={{ color: 'var(--ink-mute)' }}>
+            card {idx + 1} of {props.due.length}
+          </div>
+          <div className="card-3d">
+            <div className={'card-inner w-full ' + (flipped ? 'card-flipped' : '')} style={{ minHeight: 360 }}>
+              <div className="card-face col items-center justify-center p-8"
+                style={{
+                  background: 'var(--paper-2)', border: '1px solid var(--rule)',
+                  boxShadow: '0 1px 0 rgba(255,255,255,0.5) inset, 0 12px 28px -16px rgba(26,22,17,0.3)',
+                  cursor: 'pointer', userSelect: 'none'
+                }}
+                onClick={() => setFlipped(true)}>
+                <div className="row items-center gap-2">
+                  <span className="font-ui smallcaps" style={{ color: 'var(--ink-mute)', fontSize: 11 }}>{card.pos}</span>
+                  {card.level && <span className="font-ui smallcaps" style={{ color: 'var(--accent)', fontSize: 10, padding: '1px 6px', border: '1px solid var(--accent)', borderRadius: 3, letterSpacing: '0.1em' }}>{card.level}</span>}
+                  {card.tag && <span className="font-display italic" style={{ color: 'var(--gold)', fontSize: 11 }}>· {card.tag}</span>}
+                </div>
+                <h2 className="font-display light text-center" style={{ fontSize: 'clamp(2.25rem, 8vw, 4rem)', lineHeight: 1.05, margin: '16px 0' }}>
+                  {card.word}
+                </h2>
+                {card.pron && <div className="font-body italic text-base" style={{ color: 'var(--ink-soft)' }}>/{card.pron}/</div>}
+                <button onClick={(e) => { e.stopPropagation(); speak(card.word); }} className="mt-5 p-2"
+                  style={{ color: 'var(--ink-soft)', borderRadius: '50%' }} aria-label="Pronounce">
+                  <Volume size={20} />
+                </button>
+                <div className="absolute font-ui smallcaps" style={{ bottom: 20, color: 'var(--ink-mute)', fontSize: 10 }}>tap to reveal</div>
+              </div>
+              <div className="card-face card-back col p-8"
+                style={{
+                  background: 'var(--paper-2)', border: '1px solid var(--rule)',
+                  boxShadow: '0 1px 0 rgba(255,255,255,0.5) inset, 0 12px 28px -16px rgba(26,22,17,0.3)',
+                  cursor: 'pointer', userSelect: 'none'
+                }}
+                onClick={() => setFlipped(false)}>
+                <div className="row items-baseline gap-3" style={{ flexWrap: 'wrap' }}>
+                  <h3 className="font-display italic text-3xl" style={{ margin: 0 }}>{card.word}</h3>
+                  <span className="font-ui smallcaps" style={{ color: 'var(--ink-mute)', fontSize: 11 }}>{card.pos}</span>
+                  {card.level && <span className="font-ui smallcaps" style={{ color: 'var(--accent)', fontSize: 10, padding: '1px 6px', border: '1px solid var(--accent)', borderRadius: 3, letterSpacing: '0.1em' }}>{card.level}</span>}
+                  {card.tag && <span className="font-display italic" style={{ color: 'var(--gold)', fontSize: 12 }}>· {card.tag}</span>}
+                </div>
+                <div className="rule-line my-4" />
+                <p className="font-body text-lg leading-relaxed" style={{ margin: 0 }}>{card.def}</p>
+                <p className="font-body italic text-base leading-relaxed mt-5" style={{ color: 'var(--ink-soft)', margin: '20px 0 0 0' }}>
+                  <span className="ornament mr-2">“</span>{card.ex}<span className="ornament ml-1">”</span>
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="mt-6">
+            {flipped ? (
+              <div className="grid-4 anim-fade-up">
+                <RatingBtn label="Again" sub="< 1 day"  onClick={() => handle(1)} tone="accent" />
+                <RatingBtn label="Hard"  sub="soon"     onClick={() => handle(3)} tone="ink-soft" />
+                <RatingBtn label="Good"  sub="standard" onClick={() => handle(4)} tone="ink" />
+                <RatingBtn label="Easy"  sub="far"      onClick={() => handle(5)} tone="leaf" />
+              </div>
+            ) : (
+              <button onClick={() => setFlipped(true)} className="btn-press w-full py-4 font-ui smallcaps text-sm"
+                style={{ background: 'var(--ink)', color: 'var(--paper)' }}>reveal definition</button>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    function RatingBtn(props) {
+      const colors = { 'accent': 'var(--accent)', 'ink-soft': 'var(--ink-soft)', 'ink': 'var(--ink)', 'leaf': 'var(--leaf)' };
+      return (
+        <button onClick={props.onClick} className="btn-press col items-center"
+          style={{ padding: '12px 8px', border: '1px solid ' + colors[props.tone], color: colors[props.tone], gap: 2 }}>
+          <span className="font-display text-base">{props.label}</span>
+          <span className="font-ui smallcaps" style={{ color: 'var(--ink-mute)', fontSize: 10 }}>{props.sub}</span>
+        </button>
+      );
+    }
+
+    function Quiz(props) {
+      const [round, setRound] = useState(null);
+      const [picked, setPicked] = useState(null);
+      const [score, setScore] = useState({ right: 0, total: 0 });
+
+      const newRound = () => {
+        if (props.cards.length < 4) { setRound(null); return; }
+        const correct = props.cards[Math.floor(Math.random() * props.cards.length)];
+        const distractors = shuffle(props.cards.filter(c => c.id !== correct.id)).slice(0, 3);
+        setRound({ correct: correct, options: shuffle([correct].concat(distractors)) });
+        setPicked(null);
+      };
+      useEffect(() => { newRound(); }, [props.cards.length]);
+
+      if (props.cards.length < 4) {
+        return <div className="anim-fade-up text-center" style={{ padding: '64px 0' }}>
+          <p className="font-body text-lg" style={{ color: 'var(--ink-soft)' }}>Add at least 4 words to enable the quiz.</p>
+        </div>;
+      }
+      if (!round) return null;
+
+      const handlePick = (opt) => {
+        if (picked) return;
+        setPicked(opt);
+        setScore(s => ({ right: s.right + (opt.id === round.correct.id ? 1 : 0), total: s.total + 1 }));
+      };
+
+      return (
+        <div className="anim-fade-up">
+          <div className="row justify-between items-baseline mb-5">
+            <span className="font-ui smallcaps text-xs" style={{ color: 'var(--ink-mute)' }}>score {score.right}/{score.total}</span>
+            <button onClick={() => setScore({ right: 0, total: 0 })} className="font-ui smallcaps text-xs row items-center gap-1" style={{ color: 'var(--ink-mute)' }}>
+              <Reset size={12} /> reset
+            </button>
+          </div>
+          <div className="p-6 mb-5" style={{ background: 'var(--paper-2)', border: '1px solid var(--rule)' }}>
+            <div className="font-ui smallcaps mb-3" style={{ color: 'var(--ink-mute)', fontSize: 11 }}>which word means</div>
+            <p className="font-body text-xl leading-relaxed" style={{ margin: 0 }}>{round.correct.def}</p>
+          </div>
+          <div className="grid-2">
+            {round.options.map(function (opt) {
+              const isCorrect = opt.id === round.correct.id;
+              const isPicked = picked && picked.id === opt.id;
+              let style = { borderColor: 'var(--rule)', background: 'transparent', color: 'var(--ink)' };
+              if (picked) {
+                if (isCorrect) style = { borderColor: 'var(--leaf)', background: 'rgba(74,107,58,0.08)', color: 'var(--leaf)' };
+                else if (isPicked) style = { borderColor: 'var(--accent)', background: 'rgba(123,42,30,0.06)', color: 'var(--accent)' };
+                else style = { borderColor: 'var(--rule)', background: 'transparent', color: 'var(--ink-mute)' };
+              }
+              return (
+                <button key={opt.id} onClick={() => handlePick(opt)} disabled={!!picked}
+                  className="btn-press row items-center justify-between text-left"
+                  style={Object.assign({ padding: '16px', border: '1px solid' }, style)}>
+                  <span className="font-display italic text-xl">{opt.word}</span>
+                  {picked && isCorrect && <Check size={18} />}
+                  {picked && isPicked && !isCorrect && <Close size={18} />}
+                </button>
+              );
+            })}
+          </div>
+          {picked && (
+            <div className="mt-5 anim-fade-up">
+              <p className="font-body italic text-base mb-4" style={{ color: 'var(--ink-soft)' }}>
+                <span className="ornament mr-1">“</span>{round.correct.ex}<span className="ornament ml-1">”</span>
+              </p>
+              <button onClick={newRound} className="btn-press w-full py-4 font-ui smallcaps text-sm row items-center justify-center gap-2"
+                style={{ background: 'var(--ink)', color: 'var(--paper)' }}>next <Chevron size={16} /></button>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function ContextMode(props) {
+      const [idx, setIdx] = useState(0);
+      const [revealed, setRevealed] = useState(false);
+      const ordered = useMemo(() => shuffle(props.cards), [props.cards.length]);
+      const card = ordered[idx % ordered.length];
+      useEffect(() => { setRevealed(false); }, [idx]);
+      if (!card) return null;
+
+      const renderExample = () => {
+        const w = card.word;
+        const escaped = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const re = new RegExp('(' + escaped + ')', 'i');
+        const parts = card.ex.split(re);
+        return parts.map(function (p, i) {
+          return p.toLowerCase() === w.toLowerCase()
+            ? <span key={i} style={{ color: 'var(--accent)', borderBottom: '1px dashed var(--accent)', cursor: 'pointer' }} onClick={() => setRevealed(true)}>{p}</span>
+            : <span key={i}>{p}</span>;
+        });
+      };
+
+      return (
+        <div className="anim-fade-up">
+          <div className="font-ui smallcaps text-xs text-center mb-6" style={{ color: 'var(--ink-mute)' }}>
+            in context · {idx + 1} of {ordered.length}
+          </div>
+          <div className="p-8 mb-6" style={{ background: 'var(--paper-2)', border: '1px solid var(--rule)', minHeight: 220 }}>
+            <p className="font-display italic light leading-snug" style={{ fontSize: 'clamp(1.5rem, 3.5vw, 2rem)', margin: 0 }}>
+              {renderExample()}
+            </p>
+          </div>
+          {!revealed ? (
+            <button onClick={() => setRevealed(true)} className="btn-press w-full py-4 font-ui smallcaps text-sm"
+              style={{ background: 'var(--ink)', color: 'var(--paper)' }}>reveal meaning</button>
+          ) : (
+            <div className="anim-fade-up">
+              <div className="p-5 mb-4" style={{ borderLeft: '3px solid var(--accent)' }}>
+                <div className="row items-baseline gap-3 mb-1">
+                  <h3 className="font-display italic text-2xl" style={{ margin: 0 }}>{card.word}</h3>
+                  <span className="font-ui smallcaps" style={{ color: 'var(--ink-mute)', fontSize: 11 }}>{card.pos}</span>
+                  {card.level && <span className="font-ui smallcaps" style={{ color: 'var(--accent)', fontSize: 10, padding: '1px 6px', border: '1px solid var(--accent)', borderRadius: 3, letterSpacing: '0.1em' }}>{card.level}</span>}
+                  {card.tag && <span className="font-display italic" style={{ color: 'var(--gold)', fontSize: 12 }}>· {card.tag}</span>}
+                  {card.pron && <span className="font-body italic text-sm" style={{ color: 'var(--ink-soft)' }}>/{card.pron}/</span>}
+                </div>
+                <p className="font-body text-lg leading-relaxed" style={{ margin: 0 }}>{card.def}</p>
+              </div>
+              <button onClick={() => setIdx(i => i + 1)} className="btn-press w-full py-4 font-ui smallcaps text-sm row items-center justify-center gap-2"
+                style={{ background: 'var(--ink)', color: 'var(--paper)' }}>next sentence <Chevron size={16} /></button>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function LibraryView(props) {
+      const [editing, setEditing] = useState(null);
+      const sorted = props.cards.slice().sort((a, b) => a.word.localeCompare(b.word));
+      return (
+        <div className="anim-fade-up">
+          <div className="row items-baseline justify-between mb-4">
+            <h2 className="font-display italic text-2xl" style={{ margin: 0 }}>Your dictionary</h2>
+            <div className="row gap-3">
+              <button onClick={props.onAdd} className="font-ui smallcaps text-xs row items-center gap-1" style={{ color: 'var(--accent)' }}><Plus size={12} /> add</button>
+              <button onClick={() => { if (confirm('Reset all review progress? Words remain.')) props.onReset(); }} className="font-ui smallcaps text-xs row items-center gap-1" style={{ color: 'var(--ink-mute)' }}>
+                <Reset size={12} /> reset
+              </button>
+            </div>
+          </div>
+          <div className="rule-line mb-1" />
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+            {sorted.map(function (c) {
+              return (
+                <li key={c.id} className="row items-baseline justify-between gap-3" style={{ borderBottom: '1px solid var(--rule)', padding: '12px 0' }}>
+                  <div className="flex-1 min-w-0">
+                    <div className="row items-baseline gap-2" style={{ flexWrap: 'wrap' }}>
+                      <span className="font-display italic text-xl">{c.word}</span>
+                      <span className="font-ui smallcaps" style={{ color: 'var(--ink-mute)', fontSize: 10 }}>{c.pos}</span>
+                      {c.level && <span className="font-ui smallcaps" style={{ color: 'var(--accent)', fontSize: 9, padding: '1px 5px', border: '1px solid var(--accent)', borderRadius: 3, letterSpacing: '0.1em' }}>{c.level}</span>}
+                      {c.tag && <span className="font-display italic" style={{ color: 'var(--gold)', fontSize: 11 }}>· {c.tag}</span>}
+                    </div>
+                    <p className="font-body text-sm truncate" style={{ color: 'var(--ink-soft)', margin: '2px 0 0 0' }}>{c.def}</p>
+                    <span className="font-ui smallcaps mt-1" style={{ color: c.nextReview <= Date.now() ? 'var(--accent)' : 'var(--ink-mute)', fontSize: 10, display: 'inline-block' }}>
+                      {fmtDue(c.nextReview)} · seen {c.reps}×
+                    </span>
+                  </div>
+                  <div className="row gap-1 shrink-0">
+                    <button onClick={() => setEditing(c)} className="p-2" style={{ color: 'var(--ink-soft)' }} aria-label="Edit"><Pencil size={14} /></button>
+                    <button onClick={() => { if (confirm('Delete "' + c.word + '"?')) props.onDelete(c.id); }} className="p-2" style={{ color: 'var(--ink-mute)' }} aria-label="Delete"><Trash size={14} /></button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          {editing && <AddWordModal initial={editing} onClose={() => setEditing(null)} onAdd={(d) => { props.onEdit(editing.id, d); setEditing(null); }} />}
+        </div>
+      );
+    }
+
+    function AddWordModal(props) {
+      const initial = props.initial;
+      const [form, setForm] = useState({
+        word:  (initial && initial.word)  || '',
+        pos:   (initial && initial.pos)   || 'noun',
+        level: (initial && initial.level) || '',
+        pron:  (initial && initial.pron)  || '',
+        def:   (initial && initial.def)   || '',
+        ex:    (initial && initial.ex)    || ''
+      });
+      const set = (k, v) => setForm(f => Object.assign({}, f, { [k]: v }));
+      const submit = () => {
+        if (!form.word.trim() || !form.def.trim()) return;
+        props.onAdd({ word: form.word.trim(), pos: form.pos.trim() || 'noun', level: form.level.trim(), pron: form.pron.trim(), def: form.def.trim(), ex: form.ex.trim() });
+        props.onClose();
+      };
+      return (
+        <div className="fixed inset-0 modal-backdrop" style={{ zIndex: 50 }} onClick={props.onClose}>
+          <div className="modal-card anim-fade-up" onClick={(e) => e.stopPropagation()}>
+            <div className="row items-baseline justify-between mb-4">
+              <h3 className="font-display italic text-2xl" style={{ margin: 0 }}>{initial ? 'Edit entry' : 'New entry'}</h3>
+              <button onClick={props.onClose} aria-label="Close" style={{ color: 'var(--ink-soft)' }}><Close size={20} /></button>
+            </div>
+            <div className="col gap-3">
+              <Field label="Word or phrase">
+                <input className="w-full font-display italic text-xl py-2" style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--ink)', outline: 'none' }}
+                  value={form.word} onChange={(e) => set('word', e.target.value)} autoFocus />
+              </Field>
+              <div className="grid-2">
+                <Field label="Part of speech">
+                  <select className="w-full font-body py-2" style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--rule)', outline: 'none' }}
+                    value={form.pos} onChange={(e) => set('pos', e.target.value)}>
+                    {['noun', 'verb', 'adj.', 'adv.', 'phrase', 'idiom', 'phr. verb'].map((p) => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                </Field>
+                <Field label="CEFR level (opt.)">
+                  <select className="w-full font-body py-2" style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--rule)', outline: 'none' }}
+                    value={form.level} onChange={(e) => set('level', e.target.value)}>
+                    <option value="">—</option>
+                    {['A2', 'B1', 'B2', 'C1', 'C2'].map((l) => <option key={l} value={l}>{l}</option>)}
+                  </select>
+                </Field>
+              </div>
+              <Field label="Pronunciation (opt.)">
+                <input className="w-full font-body italic py-2" style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--rule)', outline: 'none' }}
+                  value={form.pron} onChange={(e) => set('pron', e.target.value)} placeholder="ih-FEM-er-uhl" />
+              </Field>
+              <Field label="Definition">
+                <textarea rows={2} className="w-full font-body text-base py-2"
+                  style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--rule)', outline: 'none', resize: 'none' }}
+                  value={form.def} onChange={(e) => set('def', e.target.value)} />
+              </Field>
+              <Field label="Example sentence">
+                <textarea rows={2} className="w-full font-body italic text-base py-2"
+                  style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--rule)', outline: 'none', resize: 'none', color: 'var(--ink-soft)' }}
+                  value={form.ex} onChange={(e) => set('ex', e.target.value)} />
+              </Field>
+            </div>
+            <button onClick={submit} className="btn-press w-full py-4 font-ui smallcaps text-sm mt-6"
+              style={{ background: 'var(--ink)', color: 'var(--paper)' }}>{initial ? 'save changes' : 'add to dictionary'}</button>
+          </div>
+        </div>
+      );
+    }
+
+    function Field(props) {
+      return (
+        <label style={{ display: 'block' }}>
+          <div className="font-ui smallcaps mb-1" style={{ color: 'var(--ink-mute)', fontSize: 11 }}>{props.label}</div>
+          {props.children}
+        </label>
+      );
+    }
+
+    /* ===== Mount ===== */
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>
